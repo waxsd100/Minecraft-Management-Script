@@ -1,0 +1,1 @@
+trap 'echo "Error at line ${LINENO}. Command: ${BASH_COMMAND}. Exit code: $?"; exit 1' ERR
