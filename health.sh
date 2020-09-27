@@ -157,6 +157,7 @@ mc_start(){
 
 # 停止処理 #################################################################################
 mc_stop(){
+  count_wait "$1" "秒後に停止します。"
   for proc_screen in ${!WATCH_PROCESS[@]};
   do
     stop $proc_screen 
