@@ -1,4 +1,4 @@
-# A minecraft Server Health Check and Management Script
+#  minecraft Server Health Check and Management Script
 
 0. Minecraft Server Install
 1. `yum install screen`
