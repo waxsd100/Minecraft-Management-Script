@@ -1,45 +1,70 @@
 #! /bin/bash
-# * * * * * for i in `seq 0 10 59`;do (sleep ${i}; /bin/sh /var/minecraft/healthcheck/health.sh check >> /var/minecraft/healthcheck/log/`date +\%Y-\%m-\%d_healthcheck`.log 2>&1) & done;
-# @daily find /var/minecraft/healthcheck/log/ -name '*.log' -mtime +30 -delete
 cd "${0%/*}"
 exec {lock_fd}< "$0"
 flock --nonblock ${lock_fd} || exit 0
+
+readonly HOME_PATH=`pwd`
+readonly ME_FILE="$0"
+readonly LOG_DIR="/var/healthcheck/log/"
+readonly MY_BASENAME=$(basename $0)
 
 # 定数定義
 declare -A WATCH_PROCESS;
 MAILTO=""
 
-YMD=`date '+%y/%m/%d %H:%M:%S'`
+readonly YMD=`date '+%y/%m/%d %H:%M:%S'`
 
 # 実行ユーザ定義
-RUN_USER="root"
+readonly RUN_USER="root"
 
 # 停止カウントダウン秒数
-STOP_INTERVAL=30
+readonly STOP_INTERVAL=30
 
 # 停止コマンド
-STOP_COMMAND="stop"
+readonly STOP_COMMAND="stop"
 
 # ブロードキャストコマンド
-BROADCAST_COMMAND="say"
+readonly BROADCAST_COMMAND="say"
 
 # バックアップ設定
-MC_BACKUP_FILE=`date '+%Y-%m-%d_%H'`
-MC_BACKUP_DIR_BASE="/var/minecraft/backup/"
+readonly MC_BACKUP_FILE=`date '+%Y-%m-%d_%H'`
+readonly MC_BACKUP_DIR_BASE="/var/minecraft/backup/"
 
 # Upload Dir
-DRIVE_DIR=/mnt/google-drive/TUSB/Server-Storage/
+readonly DRIVE_DIR=/mnt/google-drive/Server-Storage/
+
+# Discord Lib
+readonly DISCORD_PATH="/usr/local/bin/discord.sh"
+
+# Discord通知フラグ
+readonly DISCORD_NOTICE=true
 
 # 表示設定
-RESET=$'\e[0m'
-BOLD=$'\e[1m'
-RED=$'\e[1;31m'
-GREEN=$'\e[1;32m'
-
+readonly RESET=$'\e[0m'
+readonly BOLD=$'\e[1m'
+readonly RED=$'\e[1;31m'
+readonly GREEN=$'\e[1;32m'
 
 # Import
 . ./health.inc
 source ./exception.sm
+
+readonly LOCAL_IP=`ip -f inet -o addr show eth0|cut -d\  -f 7 | cut -d/ -f 1`
+
+send_discord() {
+
+title="$1"
+description="$2"
+footer="$3"
+color="$4"
+
+/bin/sh $DISCORD_PATH \
+  --title "${title}" \
+  --description "${description}" \
+  --footer "${footer}" \
+  --color "${color}" \
+  --timestamp
+}
 
 
 as_user() {
@@ -71,8 +96,7 @@ screen_sender(){
   for pid in `screen -list | grep $1 | cut -f1 -d'.' | sed 's/\W//g'`
   do
     SEND_SCREEN="screen -p 0 -S ${pid}.$1 -X eval"
-    echo "[${YMD}] ${pid} $1 > $2" &
-    wait
+    echo "[${YMD}] ${pid} $1 > $2"
     as_user "${SEND_SCREEN} 'stuff \"$2\"\015'"
   done
 }
@@ -80,7 +104,11 @@ screen_sender(){
 start(){
   # $1 screenName
   # $2 shellCommand
-  echo "[${YMD}] `sh $2 && echo "[${YMD}] $1 Up" || echo "[${YMD}] $1 Up Oops"`"
+  OUT=`sh $2 && echo "[${YMD}] $1 Up" || echo "[${YMD}] $1 Up Oops"`
+  if "${DISCORD_NOTICE}"; then
+      send_discord "$1 Server Start" "${OUT}" "${LOCAL_IP}" "0x2ECC71"
+  fi
+  echo ${OUT}
 }
 
 stop(){
@@ -88,32 +116,52 @@ stop(){
   # $2 ScreenCommand
   screen_sender $1 $STOP_COMMAND
   if [ $? = 0 ]; then
-    echo "[${YMD}] $1 Down"
+    OUT=`echo "[${YMD}] $1 Down"`
   else
-    echo "[${YMD}] $1 Down Oops"
+    OUT=`echo "[${YMD}] $1 Down Oops"`
     screen_shutdown $1
   fi
+
+  if "${DISCORD_NOTICE}"; then
+      send_discord "$1 Server Stop" "${OUT}" "${LOCAL_IP}" "0xE91E63"
+  fi
+
 }
 
 count_wait(){
+  # $1 count wait time(sec)
+  # $2 sen server message
+  # $3 init sercer message
+  if [ -n "$1" ]; then
+    interval=$(expr $1)
+  else
+    interval=$STOP_INTERVAL
+  fi
+  
   for proc_screen in ${!WATCH_PROCESS[@]};
     do
-    if [ -n "$1" ]; then
-      screen_sender $proc_screen "${BROADCAST_COMMAND} $1"
-    fi
-    i=${STOP_INTERVAL}
-    while [ ${i} -ne 0 ]
-    do
-      if [ ${i} -eq ${STOP_INTERVAL} ]; then
-        screen_sender $proc_screen "${BROADCAST_COMMAND} ${STOP_INTERVAL} $2"
-      else
-        if test `expr ${i} % 15` -eq 0 -o ${i} -le 10; then
-          screen_sender $proc_screen "${BROADCAST_COMMAND} ${i} $2"
-        fi
+    PROC_COUNT=`ps -ef | grep $proc_screen | grep -v grep | wc -l`
+    if [ $PROC_COUNT != 0 ]; then
+      i=${interval} 
+      if [ -n "$3" ]; then
+        screen_sender $proc_screen "${BROADCAST_COMMAND} $3"
       fi
-      i=$((${i} - 1))
-      sleep 1
-    done
+      while [ ${i} -ne 0 ]
+      do
+        if [ ${i} -eq ${interval} ]; then
+          screen_sender $proc_screen "${BROADCAST_COMMAND} ${interval} $2"
+        else
+          if test `expr ${i} % 15` -eq 0 -o ${i} -le 10; then
+            screen_sender $proc_screen "${BROADCAST_COMMAND} ${i} $2"
+          fi
+        fi
+        i=$((${i} - 1))
+        sleep 1
+      done
+    elif [ $PROC_COUNT == 0 ]; then
+      OUT=`echo "[${YMD}] $proc_screen empty process"`
+      echo ${OUT}
+    fi
   done
 }
 
@@ -134,8 +182,7 @@ mc_check(){
     # 1以上の場合は、サービスが過剰に起動しているので再起動する
       echo "[${YMD}] $proc_screen Over Running"
       # カウントダウン後 Stop / Start を行う
-      STOP_INTERVAL=10
-      mc_restart "プロセス異常を検知しました。" &
+      mc_restart 10 "§cプロセス異常を検知しました。" &
       wait
     else
     # サービス起動中
@@ -149,6 +196,7 @@ mc_check(){
 
 # 起動処理 #################################################################################
 mc_start(){
+  jobsCron false
   for proc_screen in ${!WATCH_PROCESS[@]};
   do
     start $proc_screen ${WATCH_PROCESS[$proc_screen]}
@@ -157,7 +205,9 @@ mc_start(){
 
 # 停止処理 #################################################################################
 mc_stop(){
-  count_wait "$1" "秒後に停止します。"
+  mc_backup_world
+  jobsCron true
+  count_wait "$1" "秒後に停止します。" "$2"
   for proc_screen in ${!WATCH_PROCESS[@]};
   do
     stop $proc_screen 
@@ -166,7 +216,7 @@ mc_stop(){
 
 # 再起動処理 #################################################################################
 mc_restart(){
-  count_wait "$1" "秒後に再起動します。"
+  count_wait "$1" "秒後に再起動します。" "$2"
   mc_stop
   sleep 3
   mc_start
@@ -208,6 +258,38 @@ for proc_screen in ${!WATCH_PROCESS[@]};
 }
 
 
+jobsCron(){
+  isUninstall=$1
+  
+  CRON_PATH="/var/spool/cron/${RUN_USER}"
+  LOG_FILE_NAME="\`date +\%Y-\%m-\%d\`_healthcheck.log"
+
+  EXEC_SHELL="/bin/sh ${ME_FILE}"
+  OUTPUT_LOG="${LOG_DIR}${LOG_FILE_NAME} 2>&1"
+
+  CRON_TAG="### Minecraft HealthCheck Cron ${MY_BASENAME} ###"
+  BACKUP_CRON="0 * * * * ${EXEC_SHELL} backup >> ${OUTPUT_LOG}"
+  CHECK_CRON="* * * * * ${EXEC_SHELL} check >> ${OUTPUT_LOG}"
+  # LOG_ROTATE="@daily find ${LOG_DIR}/ -name '*.log' -mtime +7 -delete"
+
+#TODO change sed command
+  sed -i -e '/health.sh/d' ${CRON_PATH}
+  # echo "sed -i -e '/health.sh/d' ${CRON_PATH}"
+  if "${isUninstall}"; then
+    echo "[${YMD}] cron jobs delete"
+  else
+    echo "${CRON_TAG}" >> ${CRON_PATH}
+    echo "${BACKUP_CRON}" >> ${CRON_PATH}
+    echo "${CHECK_CRON}" >> ${CRON_PATH}
+    echo "[${YMD}] cron jobs append"
+  fi
+  
+  systemctl restart crond &
+  wait
+  # echo "${LOG_ROTATE}" >> ${tempfile}
+  # exec "/bin/sed -i -e '/${MY_BASENAME}/d' ${tempfile}"
+}
+
 # 処理分岐 #########################################################################################
 case "$1" in
     start)
@@ -215,11 +297,11 @@ case "$1" in
       exit 0
       ;;
     stop)
-      mc_stop "$2"
+      mc_stop "$2" "$3"
       exit 0
       ;;
     restart)
-      mc_restart "$2"
+      mc_restart "$2" "$3"
       exit 0
         ;;
     check)
