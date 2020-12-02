@@ -33,8 +33,8 @@ readonly MC_BACKUP_DIR_BASE="/var/minecraft/backup/"
 # Upload Dir
 readonly DRIVE_DIR=/mnt/google-drive/Server-Storage/
 
-# Discord Lib
-readonly DISCORD_PATH="/usr/local/bin/discord.sh"
+# Discord WebHook URL
+readonly DISCORD_WEB_HOOK_URL="https://discordapp.com/api/webhooks/###########/#########"
 
 # Discord通知フラグ
 readonly DISCORD_NOTICE=true
@@ -58,12 +58,13 @@ description="$2"
 footer="$3"
 color="$4"
 
-/bin/sh $DISCORD_PATH \
+curl -LsS https://raw.githubusercontent.com/ChaoticWeg/discord.sh/master/discord.sh | bash -s -- \
   --title "${title}" \
   --description "${description}" \
   --footer "${footer}" \
   --color "${color}" \
-  --timestamp
+  --webhook-url "${DISCORD_WEB_HOOK_URL}" \
+  --timestamp 
 }
 
 
