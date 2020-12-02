@@ -1,7 +1,7 @@
 #  minecraft Server Health Check and Management Script
 
 0. Minecraft Server Install
-1. `yum install screen`
+1. `yum install screen jq`
 2. Create a log directory `make /var/log/healthcheck`
 3. Edit the configuration file (put it in the same directory)
 ```
