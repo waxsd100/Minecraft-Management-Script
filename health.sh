@@ -1,8 +1,8 @@
 #! /bin/bash
-cd "${0%/*}"
 exec {lock_fd}< "$0"
 flock --nonblock ${lock_fd} || exit 0
 
+cd "${0%/*}" > /dev/null 2>&1
 readonly HOME_PATH=`pwd`
 readonly ME_FILE="$0"
 readonly LOG_DIR="/var/healthcheck/log/"
@@ -10,9 +10,8 @@ readonly MY_BASENAME=$(basename $0)
 
 # 定数定義
 declare -A WATCH_PROCESS;
-MAILTO=""
 
-readonly YMD=`date '+%y/%m/%d %H:%M:%S'`
+readonly YMD=$(date '+%y/%m/%d %H:%M:%S')
 
 # 実行ユーザ定義
 readonly RUN_USER="root"
@@ -27,17 +26,14 @@ readonly STOP_COMMAND="stop"
 readonly BROADCAST_COMMAND="say"
 
 # バックアップ設定
-readonly MC_BACKUP_FILE=`date '+%Y-%m-%d_%H'`
-readonly MC_BACKUP_DIR_BASE="/var/minecraft/backup/"
-
-# Upload Dir
-readonly DRIVE_DIR=/mnt/google-drive/Server-Storage/
+readonly MC_BACKUP_FILE=$(date '+%Y-%m-%d_%H')
+readonly MC_BACKUP_DIR_BASE="/mnt/google-drive/TUSB/Server-Storage/"
 
 # Discord WebHook URL
 readonly DISCORD_WEB_HOOK_URL="https://discordapp.com/api/webhooks/###########/#########"
 
 # Discord通知フラグ
-readonly DISCORD_NOTICE=true
+readonly DISCORD_NOTICE=false
 
 # 表示設定
 readonly RESET=$'\e[0m'
@@ -46,31 +42,32 @@ readonly RED=$'\e[1;31m'
 readonly GREEN=$'\e[1;32m'
 
 # Import
-. ./health.inc
+. ./mc-health.inc
 source ./exception.sm
 
 readonly LOCAL_IP=`ip -f inet -o addr show eth0|cut -d\  -f 7 | cut -d/ -f 1`
 
 send_discord() {
+  title="$1"
+  description="$2"
+  footer="$3"
+  color="$4"
 
-title="$1"
-description="$2"
-footer="$3"
-color="$4"
-
-curl -LsS https://raw.githubusercontent.com/ChaoticWeg/discord.sh/master/discord.sh | bash -s -- \
-  --title "${title}" \
-  --description "${description}" \
-  --footer "${footer}" \
-  --color "${color}" \
-  --webhook-url "${DISCORD_WEB_HOOK_URL}" \
-  --timestamp 
+  if "${DISCORD_NOTICE}"; then
+    curl -LsS https://raw.githubusercontent.com/ChaoticWeg/discord.sh/master/discord.sh | bash -s -- \
+      --title "${title}" \
+      --description "${description}" \
+      --footer "${footer}" \
+      --color "${color}" \
+      --webhook-url "${DISCORD_WEB_HOOK_URL}" \
+      --timestamp
+  fi
 }
 
 
 as_user() {
 # ユーザ別実行
-ME=`whoami`
+  ME=`whoami`
     if [ ${ME} == ${RUN_USER} ] ; then
         bash -c "$1"
     else
@@ -81,7 +78,7 @@ ME=`whoami`
 screen_shutdown(){
   # $1 screenName
   # $2 execCommand
-  
+
   for pid in `screen -list | grep $1 | cut -f1 -d'.' | sed 's/\W//g'`
   do
     echo "${pid} killed"
@@ -93,7 +90,7 @@ screen_shutdown(){
 screen_sender(){
   # $1 screenName
   # $2 execCommand
-  
+
   for pid in `screen -list | grep $1 | cut -f1 -d'.' | sed 's/\W//g'`
   do
     SEND_SCREEN="screen -p 0 -S ${pid}.$1 -X eval"
@@ -105,9 +102,12 @@ screen_sender(){
 start(){
   # $1 screenName
   # $2 shellCommand
-  OUT=`sh $2 && echo "[${YMD}] $1 Up" || echo "[${YMD}] $1 Up Oops"`
-  if "${DISCORD_NOTICE}"; then
-      send_discord "$1 Server Start" "${OUT}" "${LOCAL_IP}" "0x2ECC71"
+  PROC_COUNT=`ps -ef | grep $proc_screen | grep -v grep | wc -l`
+  if [ $PROC_COUNT = 0 ]; then
+    OUT=`sh $2 && echo "[${YMD}] $1 Up" || echo "[${YMD}] $1 Up Oops"`
+    send_discord "$1 Server Start" "${OUT}" "${LOCAL_IP}" "0x2ECC71"
+  else
+    OUT=`echo "[${YMD}] $1 Up Oops"`
   fi
   echo ${OUT}
 }
@@ -123,9 +123,7 @@ stop(){
     screen_shutdown $1
   fi
 
-  if "${DISCORD_NOTICE}"; then
-      send_discord "$1 Server Stop" "${OUT}" "${LOCAL_IP}" "0xE91E63"
-  fi
+  send_discord "$1 Server Stop" "${OUT}" "${LOCAL_IP}" "0xE91E63"
 
 }
 
@@ -138,12 +136,12 @@ count_wait(){
   else
     interval=$STOP_INTERVAL
   fi
-  
+
   for proc_screen in ${!WATCH_PROCESS[@]};
     do
     PROC_COUNT=`ps -ef | grep $proc_screen | grep -v grep | wc -l`
     if [ $PROC_COUNT != 0 ]; then
-      i=${interval} 
+      i=${interval}
       if [ -n "$3" ]; then
         screen_sender $proc_screen "${BROADCAST_COMMAND} $3"
       fi
@@ -172,7 +170,7 @@ mc_check(){
   do
     #監視するプロセスが何個起動しているかカウントする
     PROC_COUNT=`ps -ef | grep $proc_screen | grep -v grep | wc -l`
-    
+
     # 監視するプロセスが0個場合に、処理を分岐する
     if [ $PROC_COUNT = 0 ]; then
     # 0の場合は、サービスが停止しているので起動する
@@ -206,12 +204,11 @@ mc_start(){
 
 # 停止処理 #################################################################################
 mc_stop(){
-  mc_backup_world
   jobsCron true
   count_wait "$1" "秒後に停止します。" "$2"
   for proc_screen in ${!WATCH_PROCESS[@]};
   do
-    stop $proc_screen 
+    stop $proc_screen
   done
 }
 
@@ -237,7 +234,7 @@ for proc_screen in ${!WATCH_PROCESS[@]};
 
     cd $TARGET_DIR
     for world in ${TARGET_WORLDS[@]};
-    do 
+    do
       BACKUP_TO="${MC_BACKUP_DIR_BASE}${MC_VER}-${MC_SERVER_NAME}/${world}"
       mkdir -p $BACKUP_TO
       ZIP_FILE_NAME="${MC_SERVER_NAME}_${MC_BACKUP_FILE}.zip"
@@ -254,14 +251,14 @@ for proc_screen in ${!WATCH_PROCESS[@]};
   find ${MC_BACKUP_DIR_BASE} -name '*.zip' -mtime +3 -delete &
   wait
   screen_sender $proc_screen "${BROADCAST_COMMAND} §9Backup Complete"
-  
+
   done
 }
 
 
 jobsCron(){
   isUninstall=$1
-  
+
   CRON_PATH="/var/spool/cron/${RUN_USER}"
   LOG_FILE_NAME="\`date +\%Y-\%m-\%d\`_healthcheck.log"
 
@@ -271,9 +268,8 @@ jobsCron(){
   CRON_TAG="### Minecraft HealthCheck Cron ${MY_BASENAME} ###"
   BACKUP_CRON="0 * * * * ${EXEC_SHELL} backup >> ${OUTPUT_LOG}"
   CHECK_CRON="* * * * * ${EXEC_SHELL} check >> ${OUTPUT_LOG}"
-  # LOG_ROTATE="@daily find ${LOG_DIR}/ -name '*.log' -mtime +7 -delete"
+  LOG_ROTATE="@daily find ${LOG_DIR}/ -name '*.log' -mtime +7 -delete"
 
-#TODO change sed command
   sed -i -e '/health.sh/d' ${CRON_PATH}
   # echo "sed -i -e '/health.sh/d' ${CRON_PATH}"
   if "${isUninstall}"; then
@@ -284,7 +280,7 @@ jobsCron(){
     echo "${CHECK_CRON}" >> ${CRON_PATH}
     echo "[${YMD}] cron jobs append"
   fi
-  
+
   systemctl restart crond &
   wait
   # echo "${LOG_ROTATE}" >> ${tempfile}
