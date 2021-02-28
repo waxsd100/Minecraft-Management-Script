@@ -50,17 +50,22 @@ I want to put the Advanced settings in the ConfigFile
 （TODO Doc）
 # Use Command 
 start)
- Start Minecraft Server 
- HealthCheck will also be added to the Cron Job
-stop)
- Stop Minecraft Server 
- HealthCheck will also be delete to the Cron Job
+ Start Minecraft Server    
+ HealthCheck will also be added to the Cron Job   
+ 
+stop)   
+ Stop Minecraft Server    
+ HealthCheck will also be delete to the Cron Job   
+   
+restart)   
+ Restart Minecraft Server    
+   
+check)   
+Check whether the server is starting or stopping   
+   
+backup)   
+Create BackUp   
 
-restart)
- Restart Minecraft Server 
 
-check)
-Check whether the server is starting or stopping
-
-backup)
-Create BackUp
+## LICENSE   
+These codes are released under the MIT License, see LICENSE.
