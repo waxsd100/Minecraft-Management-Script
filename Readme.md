@@ -1,5 +1,8 @@
 #  minecraft Server Health Check and Management Script
 
+see BungeeCord version   
+https://gist.github.com/waxsd100/1d80bc70a07ebbaeccaa5bd98ed99168
+
 0. Minecraft Server Install
 1. `yum install screen jq`
 2. Create a log directory `make /var/log/healthcheck`
