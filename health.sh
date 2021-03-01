@@ -1,12 +1,11 @@
 #! /bin/bash
 exec {lock_fd}< "$0"
 flock --nonblock ${lock_fd} || exit 0
-
 cd "${0%/*}" > /dev/null 2>&1
-readonly HOME_PATH=`pwd`
-readonly ME_FILE="$0"
-readonly LOG_DIR="/var/healthcheck/log/"
-readonly MY_BASENAME=$(basename $0)
+
+readonly ME_FILE=$(basename $0)
+readonly SCRIPT_DIR=$(cd $(dirname $0); pwd)
+readonly LOG_DIR="${SCRIPT_DIR}/log/"
 
 # 定数定義
 declare -A WATCH_PROCESS;
@@ -26,7 +25,6 @@ readonly STOP_COMMAND="stop"
 readonly BROADCAST_COMMAND="say"
 
 # バックアップ設定
-readonly MC_BACKUP_FILE=$(date '+%Y-%m-%d_%H')
 readonly MC_BACKUP_DIR_BASE="/mnt/google-drive/TUSB/Server-Storage/"
 
 # Discord WebHook URL
@@ -42,12 +40,13 @@ readonly RED=$'\e[1;31m'
 readonly GREEN=$'\e[1;32m'
 
 # Import
-. ./mc-health.inc
+. ./health.inc
 source ./exception.sm
 
 readonly LOCAL_IP=`ip -f inet -o addr show eth0|cut -d\  -f 7 | cut -d/ -f 1`
 
 send_discord() {
+  # Discord Webhook Sender 
   title="$1"
   description="$2"
   footer="$3"
@@ -195,7 +194,7 @@ mc_check(){
 
 # 起動処理 #################################################################################
 mc_start(){
-  jobsCron false
+  jobsCron true
   for proc_screen in ${!WATCH_PROCESS[@]};
   do
     start $proc_screen ${WATCH_PROCESS[$proc_screen]}
@@ -204,7 +203,7 @@ mc_start(){
 
 # 停止処理 #################################################################################
 mc_stop(){
-  jobsCron true
+  jobsCron false
   count_wait "$1" "秒後に停止します。" "$2"
   for proc_screen in ${!WATCH_PROCESS[@]};
   do
@@ -228,90 +227,101 @@ for proc_screen in ${!WATCH_PROCESS[@]};
     screen_sender $proc_screen "save-all"
     screen_sender $proc_screen "save-off"
     MC_SERVER_NAME=`echo "${proc_screen}" | sed 's/minecraft-//g'`
+    MC_BACKUP_FILE=$(date '+%Y-%m-%d_h%H')
 
     TARGET_DIR=`dirname ${WATCH_PROCESS[$proc_screen]}`
-    MC_VER=`find "${TARGET_DIR}/" -type f -name "*.jar" | gawk -F/ '{print $NF}' | tr -cd '0123456789\n.' | awk '{ $a = substr($0, 2); sub(/.$/,"",$a); print $a }'`
-
-    cd $TARGET_DIR
+    MC_VER=`find "${TARGET_DIR}/" -maxdepth 1 -type f -name "spigot*.jar" | gawk -F/ '{print $NF}' | tr -cd '0123456789\n.' | awk '{print substr($0, 1, length($0)-1)}'`
+    # MC_VER=`find "${TARGET_DIR}/" -maxdepth 1 -type f -name "spigot*.jar" | gawk -F/ '{print $NF}' | tr -cd '0123456789\n.' | awk '{ $a = substr($0, 2); sub(/.$/,"",$a); print $a }'`
+    # cd $TARGET_DIR
     for world in ${TARGET_WORLDS[@]};
-    do
-      BACKUP_TO="${MC_BACKUP_DIR_BASE}${MC_VER}-${MC_SERVER_NAME}/${world}"
+    do 
+      BACKUP_TO="${MC_BACKUP_DIR_BASE}${MC_SERVER_NAME}/${MC_VER}/${MC_BACKUP_FILE}"
       mkdir -p $BACKUP_TO
-      ZIP_FILE_NAME="${MC_SERVER_NAME}_${MC_BACKUP_FILE}.zip"
+      ZIP_FILE_NAME="${MC_SERVER_NAME}_${world}.zip"
       ARCFILE="${BACKUP_TO}/${ZIP_FILE_NAME}"
       TARGET="${TARGET_DIR}/${world}"
       if [ -e ${TARGET} ]; then
-        zip -r ${ARCFILE} ${world} 1>/dev/null &
-        wait
+        echo "-r ${ARCFILE} ${TARGET} 1>/dev/null"
         screen_sender $proc_screen "${BROADCAST_COMMAND} §aBackup Success ${ARCFILE}"
+        echo "[${YMD}] Backup Success ${ARCFILE}"
       fi
   done
   screen_sender $proc_screen "save-on"
 
-  find ${MC_BACKUP_DIR_BASE} -name '*.zip' -mtime +3 -delete &
-  wait
+  find ${MC_BACKUP_DIR_BASE} -name '*.zip' -mtime +3 -delete
   screen_sender $proc_screen "${BROADCAST_COMMAND} §9Backup Complete"
-
+  echo "[${YMD}] Backup Complete"
   done
 }
 
-
+# CronJob設定 #################################################################################
 jobsCron(){
-  isUninstall=$1
+  # スクリプト用のCronJobを設定する TrueならばInstall処理を行う
+  isInstall=$1
 
   CRON_PATH="/var/spool/cron/${RUN_USER}"
   LOG_FILE_NAME="\`date +\%Y-\%m-\%d\`_healthcheck.log"
 
-  EXEC_SHELL="/bin/sh ${ME_FILE}"
+  EXEC_SHELL="/bin/sh ${SCRIPT_DIR}/${ME_FILE}"
   OUTPUT_LOG="${LOG_DIR}${LOG_FILE_NAME} 2>&1"
 
-  CRON_TAG="### Minecraft HealthCheck Cron ${MY_BASENAME} ###"
+  CRON_TAG="### Minecraft HealthCheck Cron ${ME_FILE} ###"
   BACKUP_CRON="0 * * * * ${EXEC_SHELL} backup >> ${OUTPUT_LOG}"
   CHECK_CRON="* * * * * ${EXEC_SHELL} check >> ${OUTPUT_LOG}"
   LOG_ROTATE="@daily find ${LOG_DIR}/ -name '*.log' -mtime +7 -delete"
 
-  sed -i -e '/health.sh/d' ${CRON_PATH}
-  # echo "sed -i -e '/health.sh/d' ${CRON_PATH}"
-  if "${isUninstall}"; then
-    echo "[${YMD}] cron jobs delete"
-  else
+  SED_CMD="sed -i -e '/${ME_FILE}/d' ${CRON_PATH}"
+  eval "${SED_CMD}"
+
+  if "${isInstall}"; then
     echo "${CRON_TAG}" >> ${CRON_PATH}
     echo "${BACKUP_CRON}" >> ${CRON_PATH}
     echo "${CHECK_CRON}" >> ${CRON_PATH}
     echo "[${YMD}] cron jobs append"
+  else
+      echo "[${YMD}] cron jobs delete"
   fi
 
-  systemctl restart crond &
-  wait
-  # echo "${LOG_ROTATE}" >> ${tempfile}
-  # exec "/bin/sed -i -e '/${MY_BASENAME}/d' ${tempfile}"
+  systemctl restart crond
 }
 
 # 処理分岐 #########################################################################################
-case "$1" in
-    start)
-      mc_start "$2"
-      exit 0
-      ;;
-    stop)
-      mc_stop "$2" "$3"
-      exit 0
-      ;;
-    restart)
-      mc_restart "$2" "$3"
-      exit 0
+if [ $# = 0 ]; then
+    echo "[${YMD}] No argument is specified."
+    exit 1
+else
+  case "$1" in
+      start)
+        mc_start "$2"
+        exit 0
         ;;
-    check)
-      mc_check "$2"
-      exit 0
+      stop)
+        mc_stop "$2" "$3"
+        exit 0
         ;;
-    backup)
-      mc_backup_world
-      exit 0
-      ;;
-    *)
-      echo "[${YMD}] command not found $1"
-      exit 0
-esac
-
+      restart)
+        mc_restart "$2" "$3"
+        exit 0
+          ;;
+      check)
+        mc_check "$2"
+        exit 0
+          ;;
+      backup)
+        mc_backup_world
+        exit 0
+        ;;
+      test)
+        jobsCron false
+        exit 0
+        ;;
+      test2)
+        jobsCron true
+        exit 0
+        ;;
+      *)
+        echo "[${YMD}] command not found $1"
+        exit 0
+  esac
+fi
 exit 0
