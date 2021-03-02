@@ -241,7 +241,8 @@ for proc_screen in ${!WATCH_PROCESS[@]};
       ARCFILE="${BACKUP_TO}/${ZIP_FILE_NAME}"
       TARGET="${TARGET_DIR}/${world}"
       if [ -e ${TARGET} ]; then
-        echo "-r ${ARCFILE} ${TARGET} 1>/dev/null"
+        # echo "zip -r ${ARCFILE} ${TARGET} 1>/dev/null"
+        (cd ${TARGET_DIR}/ && zip -r ${ZIP_FILE_NAME} ${world} && mv ${ZIP_FILE_NAME} ${BACKUP_TO} --force) 1>/dev/null
         screen_sender $proc_screen "${BROADCAST_COMMAND} §aBackup Success ${ARCFILE}"
         echo "[${YMD}] Backup Success ${ARCFILE}"
       fi
