@@ -1,11 +1,38 @@
 #! /bin/bash
-exec {lock_fd}< "$0"
-flock --nonblock ${lock_fd} || echo "Duplicate startup Error"; exit 0
-declare -A WATCH_PROCESS;
-cd "${0%/*}" > /dev/null 2>&1 || :
+#
+# Usage: Minecraft Health Check & Backup Script [script mode] [option]
+#
+#   Unexpected results can occur.
+#   Be sure to configure the Config file before running.
+# Options:
+#
+#   start    Minecraft Server Start and CronJob append
+#   stop     Minecraft Server Stop and CronJob remove
+#   restart  Minecraft Server restart
+#   check    Minecraft Server Start or Stop check
+#   backup   Minecraft Server Backup
+#
+# Arguments:
+#
+#   stop / restart [stop interval] [message]
+#
+#            [stop interval] Specifies the number of seconds before stopping.
+#                           (If left blank, the default setting will be used.)
+#
+#            [message] Send a broadcast message to the server before stopping
+#
+# Version: 0.0.1
+# Twitter: wakokara
+# GitHub: waxsd100
+#
 
-readonly ME_FILE=$(basename "$0")
-readonly SCRIPT_DIR=$(cd $(dirname "$0") || exit; pwd)
+exec {lock_fd}< "$0"
+flock --nonblock ${lock_fd} || echo "[ERROR] Duplicate startup"
+cd "${0%/*}" > /dev/null 2>&1 || :
+declare -A WATCH_PROCESS;
+
+readonly ME_FILE=$(basename $0)
+readonly SCRIPT_DIR=$(cd $(dirname $0); pwd)
 readonly LOG_DIR="${SCRIPT_DIR}/log/"
 readonly LOCAL_IP=$(ip -f inet -o addr show eth0|cut -d\  -f 7 | cut -d/ -f 1)
 
@@ -17,9 +44,6 @@ readonly GREEN=$'\e[1;32m'
 readonly YMD=$(date '+%y/%m/%d %H:%M:%S')
 
 # 定数定義
-
-# ログ保存期間
-readonly LOG_LEAVE_DAYS=14
 
 # 実行ユーザ定義
 readonly RUN_USER="root"
@@ -36,6 +60,9 @@ readonly BROADCAST_COMMAND="say"
 # バックアップ設定
 readonly MC_BACKUP_DIR_BASE="/mnt/google-drive/TUSB/Server-Storage/"
 
+# ログ保存期間
+readonly LOG_LEAVE_DAYS=14
+
 # Discord WebHook URL
 readonly DISCORD_WEB_HOOK_URL="https://discordapp.com/api/webhooks/###########/#########"
 
@@ -45,6 +72,8 @@ readonly DISCORD_NOTICE=false
 # Import
 . ./health.inc
 source ./exception.sm
+
+
 
 send_discord() {
   # Discord Webhook Sender
@@ -67,8 +96,8 @@ send_discord() {
 
 as_user() {
 # ユーザ別実行
-  ME=$(whoami)
-    if [ "${ME}" == ${RUN_USER} ] ; then
+  ME=`whoami`
+    if [ ${ME} == ${RUN_USER} ] ; then
         bash -c "$1"
     else
         su - ${RUN_USER} -c "$1"
@@ -79,10 +108,10 @@ screen_shutdown(){
   # $1 screenName
   # $2 execCommand
 
-  for pid in $(screen -list | grep "$1" | cut -f1 -d'.' | sed 's/\W//g')
+  for pid in `screen -list | grep $1 | cut -f1 -d'.' | sed 's/\W//g'`
   do
     echo "${pid} killed"
-    kill "${pid}"
+    kill ${pid}
   done
 }
 
@@ -91,7 +120,7 @@ screen_sender(){
   # $1 screenName
   # $2 execCommand
 
-  for pid in $(screen -list | grep "$1" | cut -f1 -d'.' | sed 's/\W//g')
+  for pid in `screen -list | grep $1 | cut -f1 -d'.' | sed 's/\W//g'`
   do
     SEND_SCREEN="screen -p 0 -S ${pid}.$1 -X eval"
     echo "[${YMD}] ${pid} $1 > $2"
@@ -102,25 +131,25 @@ screen_sender(){
 start(){
   # $1 screenName
   # $2 shellCommand
-  PROC_COUNT=$(ps -ef | grep "$proc_screen" | grep -v grep | wc -l)
-  if [ "$PROC_COUNT" = 0 ]; then
-    OUT=$(sh "$2" && echo "[${YMD}] $1 Up" || echo "[${YMD}] $1 Up Oops")
+  PROC_COUNT=`ps -ef | grep $proc_screen | grep -v grep | wc -l`
+  if [ $PROC_COUNT = 0 ]; then
+    OUT=`sh $2 && echo "[${YMD}] $1 Up" || echo "[${YMD}] $1 Up Oops"`
     send_discord "$1 Server Start" "${OUT}" "${LOCAL_IP}" "0x2ECC71"
   else
-    OUT=$(echo "[${YMD}] $1 Up Oops")
+    OUT=`echo "[${YMD}] $1 Up Oops"`
   fi
-  echo "${OUT}"
+  echo ${OUT}
 }
 
 stop(){
   # $1 screenName
   # $2 ScreenCommand
-  screen_sender "$1" $STOP_COMMAND
+  screen_sender $1 $STOP_COMMAND
   if [ $? = 0 ]; then
-    OUT=$(echo "[${YMD}] $1 Down")
+    OUT=`echo "[${YMD}] $1 Down"`
   else
-    OUT=$(echo "[${YMD}] $1 Down Oops")
-    screen_shutdown "$1"
+    OUT=`echo "[${YMD}] $1 Down Oops"`
+    screen_shutdown $1
   fi
 
   send_discord "$1 Server Stop" "${OUT}" "${LOCAL_IP}" "0xE91E63"
@@ -129,37 +158,43 @@ stop(){
 
 count_wait(){
   # $1 count wait time(sec)
-  # $2 sen server message
-  # $3 init sercer message
-  if [ -n "$1" ]; then
-    interval=$(expr "$1")
+  # $2 send notice server message
+  # $3 init notice server message
+
+  if [[ "$1" =~ ^[0-9]+$ ]];then
+    if [ -n "$1" ]; then
+      interval=$(expr $1)
+    else
+      interval=$STOP_INTERVAL
+    fi
   else
-    interval=$STOP_INTERVAL
+    echo "[ERROR] $1 is not a number"
   fi
 
   for proc_screen in ${!WATCH_PROCESS[@]};
     do
-    PROC_COUNT=$(ps -ef | grep "$proc_screen" | grep -v grep | wc -l)
-    if [ "$PROC_COUNT" != 0 ]; then
+    PROC_COUNT=`ps -ef | grep $proc_screen | grep -v grep | wc -l`
+    if [ $PROC_COUNT != 0 ]; then
       i=${interval}
       if [ -n "$3" ]; then
-        screen_sender "$proc_screen" "${BROADCAST_COMMAND} $3"
+        # 実行前にメッセージ送信する
+        screen_sender $proc_screen "${BROADCAST_COMMAND} $3"
       fi
       while [ ${i} -ne 0 ]
       do
         if [ ${i} -eq ${interval} ]; then
-          screen_sender "$proc_screen" "${BROADCAST_COMMAND} ${interval} $2"
+          screen_sender $proc_screen "${BROADCAST_COMMAND} ${interval} $2"
         else
-          if test $(expr ${i} % 15) -eq 0 -o ${i} -le 10; then
-            screen_sender "$proc_screen" "${BROADCAST_COMMAND} ${i} $2"
+          if test `expr ${i} % 15` -eq 0 -o ${i} -le 10; then
+            screen_sender $proc_screen "${BROADCAST_COMMAND} ${i} $2"
           fi
         fi
         i=$((${i} - 1))
         sleep 1
       done
-    elif [ "$PROC_COUNT" == 0 ]; then
-      OUT=$(echo "[${YMD}] $proc_screen empty process")
-      echo "${OUT}"
+    elif [ $PROC_COUNT == 0 ]; then
+      OUT=`echo "[${YMD}] $proc_screen empty process"`
+      echo ${OUT}
     fi
   done
 }
@@ -169,15 +204,15 @@ mc_check(){
   for proc_screen in ${!WATCH_PROCESS[@]};
   do
     #監視するプロセスが何個起動しているかカウントする
-    PROC_COUNT=$(ps -ef | grep "$proc_screen" | grep -v grep | wc -l)
+    PROC_COUNT=$(ps -ef | grep $proc_screen | grep -v grep | wc -l)
 
     # 監視するプロセスが0個場合に、処理を分岐する
-    if [ "$PROC_COUNT" = 0 ]; then
+    if [ $PROC_COUNT = 0 ]; then
     # 0の場合は、サービスが停止しているので起動する
       echo "[${YMD}] $proc_screen Dead"
       mc_start
 
-    elif [ "$PROC_COUNT" -ge 2 ]; then
+    elif [ $PROC_COUNT -ge 2 ]; then
     # 1以上の場合は、サービスが過剰に起動しているので再起動する
       echo "[${YMD}] $proc_screen Over Running"
       # カウントダウン後 Stop / Start を行う
@@ -198,7 +233,7 @@ mc_start(){
   jobsCron true
   for proc_screen in ${!WATCH_PROCESS[@]};
   do
-    start "$proc_screen" "${WATCH_PROCESS[$proc_screen]}"
+    start $proc_screen ${WATCH_PROCESS[$proc_screen]}
   done
 }
 
@@ -208,7 +243,7 @@ mc_stop(){
   count_wait "$1" "秒後に停止します。" "$2"
   for proc_screen in ${!WATCH_PROCESS[@]};
   do
-    stop "$proc_screen"
+    stop $proc_screen
   done
 }
 
@@ -224,34 +259,34 @@ mc_restart(){
 mc_backup_world() {
 for proc_screen in ${!WATCH_PROCESS[@]};
   do
-    screen_sender "$proc_screen" "${BROADCAST_COMMAND} §9Auto Backup Start"
-    screen_sender "$proc_screen" "save-all"
-    screen_sender "$proc_screen" "save-off"
-    MC_SERVER_NAME=$(echo "${proc_screen}" | sed 's/minecraft-//g')
+    screen_sender $proc_screen "${BROADCAST_COMMAND} §9Auto Backup Start"
+    screen_sender $proc_screen "save-all"
+    screen_sender $proc_screen "save-off"
+    MC_SERVER_NAME=`echo "${proc_screen}" | sed 's/minecraft-//g'`
     MC_BACKUP_FILE=$(date '+%Y-%m-%d_h%H')
 
-    TARGET_DIR=$(dirname "${WATCH_PROCESS[$proc_screen]}")
-    MC_VER=$(find "${TARGET_DIR}/" -maxdepth 1 -type f -name "spigot*.jar" | gawk -F/ '{print $NF}' | tr -cd '0123456789\n.' | awk '{print substr($0, 1, length($0)-1)}')
+    TARGET_DIR=`dirname ${WATCH_PROCESS[$proc_screen]}`
+    MC_VER=`find "${TARGET_DIR}/" -maxdepth 1 -type f -name "spigot*.jar" | gawk -F/ '{print $NF}' | tr -cd '0123456789\n.' | awk '{print substr($0, 1, length($0)-1)}'`
     # MC_VER=`find "${TARGET_DIR}/" -maxdepth 1 -type f -name "spigot*.jar" | gawk -F/ '{print $NF}' | tr -cd '0123456789\n.' | awk '{ $a = substr($0, 2); sub(/.$/,"",$a); print $a }'`
     # cd $TARGET_DIR
     for world in ${TARGET_WORLDS[@]};
     do
       BACKUP_TO="${MC_BACKUP_DIR_BASE}${MC_SERVER_NAME}/${MC_VER}/${MC_BACKUP_FILE}"
-      mkdir -p "$BACKUP_TO"
+      mkdir -p $BACKUP_TO
       ZIP_FILE_NAME="${MC_SERVER_NAME}_${world}.zip"
       ARC_FILE="${BACKUP_TO}/${ZIP_FILE_NAME}"
       TARGET="${TARGET_DIR}/${world}"
-      if [ -e "${TARGET}" ]; then
+      if [ -e ${TARGET} ]; then
         # echo "zip -r ${ARC_FILE} ${TARGET} 1>/dev/null"
-        (cd "${TARGET_DIR}"/ && zip -r "${ZIP_FILE_NAME}" "${world}" && mv "${ZIP_FILE_NAME}" "${BACKUP_TO}" --force) 1>/dev/null
-        screen_sender "$proc_screen" "${BROADCAST_COMMAND} §aBackup Success ${ARC_FILE}"
+        (cd ${TARGET_DIR}/ && zip -r ${ZIP_FILE_NAME} ${world} && mv ${ZIP_FILE_NAME} ${BACKUP_TO} --force) 1>/dev/null
+        screen_sender $proc_screen "${BROADCAST_COMMAND} §aBackup Success ${ARC_FILE}"
         echo "[${YMD}] Backup Success ${ARC_FILE}"
       fi
   done
-  screen_sender "$proc_screen" "save-on"
+  screen_sender $proc_screen "save-on"
 
   find ${MC_BACKUP_DIR_BASE} -name '*.zip' -mtime +3 -delete
-  screen_sender "$proc_screen" "${BROADCAST_COMMAND} §9Backup Complete"
+  screen_sender $proc_screen "${BROADCAST_COMMAND} §9Backup Complete"
   echo "[${YMD}] Backup Complete"
   done
 }
@@ -294,7 +329,7 @@ if [ $# = 0 ]; then
 else
   case "$1" in
       start)
-        mc_start "$2"
+        mc_start
         exit 0
         ;;
       stop)
@@ -306,12 +341,18 @@ else
         exit 0
           ;;
       check)
-        mc_check "$2"
+        mc_check
         exit 0
           ;;
       backup)
         mc_backup_world
         exit 0
+        ;;
+      help)
+          echo ""
+          msg=$(sed -rn '/^# Usage/,${/^#/!q;s/^# ?//;p}' "$0")
+          eval $'cat <<__END__\n'"$msg"$'\n__END__\n'
+          echo ""
         ;;
       *)
         echo "[${YMD}] command not found $1"
