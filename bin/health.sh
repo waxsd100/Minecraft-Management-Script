@@ -70,10 +70,8 @@ readonly DISCORD_WEB_HOOK_URL="https://discordapp.com/api/webhooks/###########/#
 readonly DISCORD_NOTICE=false
 
 # Import
-. ./health.inc
-source ./exception.sm
-
-
+. ../health.inc
+source ../exception.sm
 
 send_discord() {
   # Discord Webhook Sender
@@ -160,9 +158,8 @@ count_wait(){
   # $1 count wait time(sec)
   # $2 send notice server message
   # $3 init notice server message
-
-  if [[ "$1" =~ ^[0-9]+$ ]];then
-    if [ -n "$1" ]; then
+  if [ -n "$1" ]; then
+    if [[ "$1" =~ ^[0-9]+$ ]];then
       interval=$(expr $1)
     else
       interval=$STOP_INTERVAL
