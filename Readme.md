@@ -4,7 +4,7 @@ see BungeeCord version
 https://gist.github.com/waxsd100/1d80bc70a07ebbaeccaa5bd98ed99168
 
 0. Minecraft Server Install
-1. `yum install screen jq`
+1. `yum install screen jq pv`
 2. Create a log directory `make /var/log/healthcheck`
 3. Edit the configuration file (put it in the same directory)
 ```
@@ -52,22 +52,28 @@ I want to put the Advanced settings in the ConfigFile
 
 （TODO Doc）
 # Use Command 
-start)
- Start Minecraft Server    
- HealthCheck will also be added to the Cron Job   
- 
-stop)   
- Stop Minecraft Server    
- HealthCheck will also be delete to the Cron Job   
-   
-restart)   
- Restart Minecraft Server    
-   
-check)   
-Check whether the server is starting or stopping   
-   
-backup)   
-Create BackUp   
+Usage: Minecraft Health Check & Backup Script [script mode] [option]  
+
+  Unexpected results can occur.  
+  Be sure to configure the Config file before running.  
+Options:  
+
+  start    Minecraft Server Start and CronJob append  
+  stop     Minecraft Server Stop and CronJob remove  
+  restart  Minecraft Server restart  
+  check    Minecraft Server Start or Stop check  
+  backup   Minecraft Server Backup  
+
+Arguments:  
+
+  stop / restart [stop interval] [message]  
+
+           [stop interval] Specifies the number of seconds before stopping.  
+                          (If left blank, the default setting will be used.)  
+
+           [message] Send a broadcast message to the server before stopping  
+
+
 
 
 ## LICENSE   
