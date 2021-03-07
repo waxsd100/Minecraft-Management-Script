@@ -2,6 +2,7 @@
 #
 # Usage: Minecraft Health Check & Backup Script [script mode] [option]
 #
+#   Prerequisite software: jq , pv
 #   Unexpected results can occur.
 #   Be sure to configure the Config file before running.
 # Options:
@@ -37,7 +38,7 @@ readonly SCRIPT_DIR=$(cd -- "$(dirname -- "$1")" && pwd)
 readonly SCRIPT_PATH="${SCRIPT_DIR}/${ME_FILE}"
 readonly LOG_DIR="$(cd .. "$(dirname -- "$1")" && pwd)/log/"
 
-readonly LOCAL_IP=$(ip -f inet -o addr show eth0|cut -d\  -f 7 | cut -d/ -f 1)
+readonly LOCAL_IP=`ip -f inet -o addr show eth0|cut -d\  -f 7 | cut -d/ -f 1`
 
 # 表示設定
 readonly RESET=$'\e[0m'
@@ -276,12 +277,14 @@ for proc_screen in ${!WATCH_PROCESS[@]};
     do
       BACKUP_TO="${MC_BACKUP_DIR_BASE}${MC_SERVER_NAME}/${MC_VER}/${MC_BACKUP_FILE}"
       mkdir -p $BACKUP_TO
-      ZIP_FILE_NAME="${MC_SERVER_NAME}_${world}.zip"
+      ZIP_FILE_NAME="${MC_SERVER_NAME}_${world}"
       ARC_FILE="${BACKUP_TO}/${ZIP_FILE_NAME}"
       TARGET="${TARGET_DIR}/${world}"
       if [ -e ${TARGET} ]; then
         # echo "zip -r ${ARC_FILE} ${TARGET} 1>/dev/null"
-        (cd ${TARGET_DIR}/ && zip -r ${ZIP_FILE_NAME} ${world} && mv ${ZIP_FILE_NAME} ${BACKUP_TO} --force) 1>/dev/null
+        # (cd ${TARGET_DIR}/ && zip -r ${ZIP_FILE_NAME} ${world} && mv ${ZIP_FILE_NAME} ${BACKUP_TO} --force) 1>/dev/null
+        # UnArchives Command ( pv data.tar | tar xf - )
+        (cd ${TARGET_DIR}/ && tar cf - ${world}/ | pv -s $(du -sb ${world} | awk '{print $1}') | bzip2 > "${ZIP_FILE_NAME}.tar.bz2" && mv "${ZIP_FILE_NAME}.tar.bz2" ${BACKUP_TO} --force)
         screen_sender $proc_screen "${BROADCAST_COMMAND} §aBackup Success ${ARC_FILE}"
         echo "[${YMD}] Backup Success ${ARC_FILE}"
       fi
@@ -349,6 +352,14 @@ else
           ;;
       backup)
         mc_backup_world
+        exit 0
+        ;;
+      install)
+        jobsCron true
+        exit 0
+        ;;
+      uninstall)
+        jobsCron false
         exit 0
         ;;
       help)
