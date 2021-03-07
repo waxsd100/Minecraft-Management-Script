@@ -35,7 +35,8 @@ readonly ME_FILE=$(basename $0)
 readonly SCRIPT_DIR=$(cd -- "$(dirname -- "$1")" && pwd)
 #readonly SCRIPT_DIR=$(cd $(dirname $0); pwd)
 readonly SCRIPT_PATH="${SCRIPT_DIR}/${ME_FILE}"
-readonly LOG_DIR="${SCRIPT_DIR}/log/"
+readonly LOG_DIR="$(cd .. "$(dirname -- "$1")" && pwd)/log/"
+
 readonly LOCAL_IP=$(ip -f inet -o addr show eth0|cut -d\  -f 7 | cut -d/ -f 1)
 
 # 表示設定
@@ -64,6 +65,9 @@ readonly MC_BACKUP_DIR_BASE="/mnt/google-drive/TUSB/Server-Storage/"
 
 # ログ保存期間
 readonly LOG_LEAVE_DAYS=14
+
+# Backup保存期間
+readonly BACKUP_LEAVE_DAYS=7
 
 # Discord WebHook URL
 readonly DISCORD_WEB_HOOK_URL="https://discordapp.com/api/webhooks/###########/#########"
@@ -284,7 +288,7 @@ for proc_screen in ${!WATCH_PROCESS[@]};
   done
   screen_sender $proc_screen "save-on"
 
-  find ${MC_BACKUP_DIR_BASE} -name '*.zip' -mtime +3 -delete
+  find ${MC_BACKUP_DIR_BASE} -name '*.zip' -mtime +${BACKUP_LEAVE_DAYS} -delete
   screen_sender $proc_screen "${BROADCAST_COMMAND} §9Backup Complete"
   echo "[${YMD}] Backup Complete"
   done
