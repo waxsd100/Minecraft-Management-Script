@@ -32,7 +32,9 @@ cd "${0%/*}" > /dev/null 2>&1 || :
 declare -A WATCH_PROCESS;
 
 readonly ME_FILE=$(basename $0)
-readonly SCRIPT_DIR=$(cd $(dirname $0); pwd)
+readonly SCRIPT_DIR=$(cd -- "$(dirname -- "$1")" && pwd)
+#readonly SCRIPT_DIR=$(cd $(dirname $0); pwd)
+readonly SCRIPT_PATH="${SCRIPT_DIR}/${ME_FILE}"
 readonly LOG_DIR="${SCRIPT_DIR}/log/"
 readonly LOCAL_IP=$(ip -f inet -o addr show eth0|cut -d\  -f 7 | cut -d/ -f 1)
 
@@ -347,7 +349,7 @@ else
         ;;
       help)
           echo ""
-          msg=$(sed -rn '/^# Usage/,${/^#/!q;s/^# ?//;p}' "$0")
+          msg=$(sed -rn '/^# Usage/,${/^#/!q;s/^# ?//;p}' "$SCRIPT_PATH")
           eval $'cat <<__END__\n'"$msg"$'\n__END__\n'
           echo ""
         ;;
