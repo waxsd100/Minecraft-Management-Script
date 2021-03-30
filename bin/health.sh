@@ -50,7 +50,7 @@ readonly YMD=$(date '+%y/%m/%d %H:%M:%S')
 # 定数定義
 
 # 実行ユーザ定義
-readonly RUN_USER="root"
+readonly RUN_USER="minecraft"
 
 # 停止カウントダウン秒数
 readonly STOP_INTERVAL=30
@@ -109,17 +109,6 @@ as_user() {
     fi
 }
 
-screen_shutdown(){
-  # $1 screenName
-  # $2 execCommand
-
-  for pid in `screen -list | grep $1 | cut -f1 -d'.' | sed 's/\W//g'`
-  do
-    echo "${pid} killed"
-    kill ${pid}
-  done
-}
-
 
 screen_sender(){
   # $1 screenName
@@ -136,14 +125,21 @@ screen_sender(){
 start(){
   # $1 screenName
   # $2 shellCommand
+  exitCode=0
   PROC_COUNT=`ps -ef | grep $proc_screen | grep -v grep | wc -l`
   if [ $PROC_COUNT = 0 ]; then
-    OUT=`sh $2 && echo "[${YMD}] $1 Up" || echo "[${YMD}] $1 Up Oops"`
-    send_discord "$1 Server Start" "${OUT}" "${LOCAL_IP}" "0x2ECC71"
+    output=$(/bin/sh $2 2>&1 > /dev/null) || exitCode=$?
+    if [ "$exitCode" = "0" ]; then
+      echo "[${YMD}] $1 Up"
+      send_discord "$1 Server Start" "${OUT}" "${LOCAL_IP}" "0x2ECC71"
+    else
+      echo "[${YMD}] $1 Up Oops"
+      send_discord "$1 Server Start Oops..." "${OUT}" "${LOCAL_IP}" "0x2ECC71"
+    fi
   else
-    OUT=`echo "[${YMD}] $1 Up Oops"`
+    echo "[${YMD}] $1 is up and running"
+    send_discord "$1 is up and running..." "${OUT}" "${LOCAL_IP}" "0x2ECC71"
   fi
-  echo ${OUT}
 }
 
 stop(){
@@ -154,9 +150,12 @@ stop(){
     OUT=`echo "[${YMD}] $1 Down"`
   else
     OUT=`echo "[${YMD}] $1 Down Oops"`
-    screen_shutdown $1
+    for pid in `screen -list | grep $1 | cut -f1 -d'.' | sed 's/\W//g'`
+    do
+      echo "${pid} killed"
+      kill ${pid}
+    done
   fi
-
   send_discord "$1 Server Stop" "${OUT}" "${LOCAL_IP}" "0xE91E63"
 
 }
@@ -170,9 +169,10 @@ count_wait(){
       interval=$(expr $1)
     else
       interval=$STOP_INTERVAL
+      echo "[ERROR] $1 is not a number. to set interval $interval"
     fi
   else
-    echo "[ERROR] $1 is not a number"
+    interval=$STOP_INTERVAL
   fi
 
   for proc_screen in ${!WATCH_PROCESS[@]};
