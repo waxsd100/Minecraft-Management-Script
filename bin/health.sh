@@ -128,7 +128,7 @@ start(){
   exitCode=0
   PROC_COUNT=`ps -ef | grep $proc_screen | grep -v grep | wc -l`
   if [ $PROC_COUNT = 0 ]; then
-    output=$(/bin/sh $2 2>&1 > /dev/null) || exitCode=$?
+    as_user "/bin/sh $2" || exitCode=$?
     if [ "$exitCode" = "0" ]; then
       echo "[${YMD}] $1 Up"
       send_discord "$1 Server Start" "${OUT}" "${LOCAL_IP}" "0x2ECC71"
