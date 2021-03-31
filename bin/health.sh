@@ -244,7 +244,8 @@ for proc_screen in ${!WATCH_PROCESS[@]};
     MC_VER=`find "${TARGET_DIR}/" -maxdepth 1 -type f -name "spigot*.jar" | gawk -F/ '{print $NF}' | tr -cd '0123456789\n.' | awk '{print substr($0, 1, length($0)-1)}'`
     # MC_VER=`find "${TARGET_DIR}/" -maxdepth 1 -type f -name "spigot*.jar" | gawk -F/ '{print $NF}' | tr -cd '0123456789\n.' | awk '{ $a = substr($0, 2); sub(/.$/,"",$a); print $a }'`
     # cd $TARGET_DIR
-    MC_SERVER_NAME=`echo "${proc_screen}" | sed 's/minecraft-//g'`
+    SERVER_NAME_GET_CMD="echo "${proc_screen}" | sed 's/${SCREEN_PREFIX}-//g'"
+    MC_SERVER_NAME=$(eval "${SERVER_NAME_GET_CMD}")
     MC_BACKUP_WORLD_BASE=$(date '+%Y-%m-%d')
     MC_BACKUP_FILE="$(date '+h%H')-${MC_VER}"
 

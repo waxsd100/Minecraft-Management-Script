@@ -3,6 +3,9 @@
 # 実行ユーザ定義
 readonly RUN_USER="minecraft"
 
+# ScreenNameのプレフィックス
+SCREEN_PREFIX="minecraft"
+
 # 停止カウントダウン秒数
 readonly STOP_INTERVAL=30
 
@@ -13,7 +16,7 @@ readonly STOP_COMMAND="stop"
 readonly BROADCAST_COMMAND="say"
 
 # バックアップ設定
-readonly MC_BACKUP_DIR_BASE="/mnt/google-drive/TUSB/Server-Storage/"
+readonly MC_BACKUP_DIR_BASE="/mnt/google-drive/Backups/Minecraft/"
 
 # ログ保存期間
 readonly LOG_LEAVE_DAYS=14
