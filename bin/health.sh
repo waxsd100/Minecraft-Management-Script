@@ -239,16 +239,18 @@ for proc_screen in ${!WATCH_PROCESS[@]};
     screen_sender $proc_screen "${BROADCAST_COMMAND} §9Auto Backup Start"
     screen_sender $proc_screen "save-all"
     screen_sender $proc_screen "save-off"
-    MC_SERVER_NAME=`echo "${proc_screen}" | sed 's/minecraft-//g'`
-    MC_BACKUP_FILE=$(date '+%Y-%m-%d_h%H')
 
     TARGET_DIR=`dirname ${WATCH_PROCESS[$proc_screen]}`
     MC_VER=`find "${TARGET_DIR}/" -maxdepth 1 -type f -name "spigot*.jar" | gawk -F/ '{print $NF}' | tr -cd '0123456789\n.' | awk '{print substr($0, 1, length($0)-1)}'`
     # MC_VER=`find "${TARGET_DIR}/" -maxdepth 1 -type f -name "spigot*.jar" | gawk -F/ '{print $NF}' | tr -cd '0123456789\n.' | awk '{ $a = substr($0, 2); sub(/.$/,"",$a); print $a }'`
     # cd $TARGET_DIR
+    MC_SERVER_NAME=`echo "${proc_screen}" | sed 's/minecraft-//g'`
+    MC_BACKUP_WORLD_BASE=$(date '+%Y-%m-%d')
+    MC_BACKUP_FILE="$(date '+h%H')-${MC_VER}"
+
     for world in ${TARGET_WORLDS[@]};
     do
-      BACKUP_TO="${MC_BACKUP_DIR_BASE}${MC_SERVER_NAME}/${MC_VER}/${MC_BACKUP_FILE}"
+      BACKUP_TO="${MC_BACKUP_DIR_BASE}${MC_SERVER_NAME}/${MC_BACKUP_WORLD_BASE}/${MC_BACKUP_FILE}"
       mkdir -p $BACKUP_TO
       ZIP_FILE_NAME="${MC_SERVER_NAME}_${world}"
       ARC_FILE="${BACKUP_TO}/${ZIP_FILE_NAME}"
@@ -258,7 +260,7 @@ for proc_screen in ${!WATCH_PROCESS[@]};
         # (cd ${TARGET_DIR}/ && zip -r ${ZIP_FILE_NAME} ${world} && mv ${ZIP_FILE_NAME} ${BACKUP_TO} --force) 1>/dev/null
         # UnArchives Command ( pv data.tar | tar xf - )
         (cd ${TARGET_DIR}/ && tar cf - ${world}/ | pv -s $(du -sb ${world} | awk '{print $1}') | bzip2 > "${ZIP_FILE_NAME}.tar.bz2" && mv "${ZIP_FILE_NAME}.tar.bz2" ${BACKUP_TO} --force)
-        screen_sender $proc_screen "${BROADCAST_COMMAND} §aBackup Success ${ARC_FILE}"
+#        screen_sender $proc_screen "${BROADCAST_COMMAND} §aBackup Success ${ARC_FILE}"
         echo "[${YMD}] Backup Success ${ARC_FILE}"
       fi
   done
