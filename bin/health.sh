@@ -170,23 +170,24 @@ count_wait(){
     if [ $PROC_COUNT != 0 ]; then
       i=${interval}
       if [ -n "$3" ]; then
+        screen_name="${SCREEN_PREFIX}-$proc_screen"
         # 実行前にメッセージ送信する
-        screen_sender $proc_screen "${BROADCAST_COMMAND} $3"
+        screen_sender $screen_name "${BROADCAST_COMMAND} $3"
       fi
       while [ ${i} -ne 0 ]
       do
         if [ ${i} -eq ${interval} ]; then
-          screen_sender $proc_screen "${BROADCAST_COMMAND} ${interval} $2"
+          screen_sender $screen_name "${BROADCAST_COMMAND} ${interval} $2"
         else
           if test `expr ${i} % 15` -eq 0 -o ${i} -le 10; then
-            screen_sender $proc_screen "${BROADCAST_COMMAND} ${i} $2"
+            screen_sender $screen_name "${BROADCAST_COMMAND} ${i} $2"
           fi
         fi
         i=$((${i} - 1))
         sleep 1
       done
     elif [ $PROC_COUNT == 0 ]; then
-      OUT=`echo "[${YMD}] $proc_screen empty process"`
+      OUT=`echo "[${YMD}] $proc_screen is empty process"`
       echo ${OUT}
     fi
   done
