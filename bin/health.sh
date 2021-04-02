@@ -22,10 +22,9 @@
 #
 #            [message] Send a broadcast message to the server before stopping
 #
-# Version: 0.0.2
 # Twitter: wakokara
 # GitHub: waxsd100
-#
+# Version: 0.0.2
 
 VERSION="0.0.2"
 exec {lock_fd}< "$0"
@@ -88,8 +87,8 @@ as_user() {
 screen_sender(){
   # $1 screenName
   # $2 execCommand
-
-  for pid in `screen -list | grep $1 | cut -f1 -d'.' | sed 's/\W//g'`
+  screen_name="${SCREEN_PREFIX}-$1"
+  for pid in `screen -list | grep $screen_name | cut -f1 -d'.' | sed 's/\W//g'`
   do
     SEND_SCREEN="screen -p 0 -S ${pid}.$1 -X eval"
     echo "[${YMD}] ${pid} $1 > $2"
@@ -100,9 +99,11 @@ screen_sender(){
 start(){
   # $1 screenName
   # $2 shellCommand
-  screen_name="$1"
+  proc_screen="$1"
+  screen_name="${SCREEN_PREFIX}-${proc_screen}"
   target_dir="$2"
-  screen_exec=`echo "screen -AmdS ${SCREEN_PREFIX}-${screen_name} ${EXEC_COMMAND[$1]}"`
+
+  screen_exec=`echo "screen -AmdS ${screen_name} ${EXEC_COMMAND[$1]}"`
 
   if [ -d "$target_dir" ]; then
 cat <<EOF > "$target_dir/run.sh"
@@ -114,38 +115,38 @@ EOF
   fi
 
   exitCode=0
-  PROC_COUNT=`ps -ef | grep $proc_screen | grep -v grep | wc -l`
+  PROC_COUNT=`ps -ef | grep $screen_name | grep -v grep | wc -l`
   if [ $PROC_COUNT = 0 ]; then
     as_user "/bin/sh $target_dir/run.sh" || exitCode=$?
     if [ "$exitCode" = "0" ]; then
-      echo "[${YMD}] [$screen_name] Up"
-      send_discord "[$screen_name] Server Start" "${OUT}" "${LOCAL_IP}" "0x2ECC71"
+      echo "[${YMD}] [$proc_screen] Up"
+      send_discord "[$proc_screen] Server Start" "${OUT}" "${LOCAL_IP}" "0x2ECC71"
     else
-      echo "[${YMD}] [$screen_name] Up Oops"
-      send_discord "[$screen_name] Server Start Oops..." "${OUT}" "${LOCAL_IP}" "0x2ECC71"
+      echo "[${YMD}] [$proc_screen] Up Oops"
+      send_discord "[$proc_screen] Server Start Oops..." "${OUT}" "${LOCAL_IP}" "0x2ECC71"
     fi
   else
-    echo "[${YMD}] [$screen_name] is up and running"
-    send_discord "[$screen_name] is up and running..." "${OUT}" "${LOCAL_IP}" "0x2ECC71"
+    echo "[${YMD}] [$proc_screen] is up and running"
+    send_discord "[$proc_screen] is up and running..." "${OUT}" "${LOCAL_IP}" "0x2ECC71"
   fi
 }
 
 stop(){
   # $1 screenName
   # $2 ScreenCommand
-  screen_name="${SCREEN_PREFIX}-$1"
-  screen_sender $screen_name $STOP_COMMAND
+  proc_screen="$1"
+  screen_sender $proc_screen $STOP_COMMAND
   if [ $? = 0 ]; then
-    OUT=`echo "[${YMD}] [$1] Down"`
+    OUT=`echo "[${YMD}] [$proc_screen] Down"`
   else
-    OUT=`echo "[${YMD}] [$1] Down Oops"`
-    for pid in `screen -list | grep $1 | cut -f1 -d'.' | sed 's/\W//g'`
+    OUT=`echo "[${YMD}] [$proc_screen] Down Oops"`
+    for pid in `screen -list | grep $proc_screen | cut -f1 -d'.' | sed 's/\W//g'`
     do
       echo "${pid} killed"
       kill ${pid}
     done
   fi
-  send_discord "$1 Server Stop" "${OUT}" "${LOCAL_IP}" "0xE91E63"
+  send_discord "$proc_screen Server Stop" "${OUT}" "${LOCAL_IP}" "0xE91E63"
 
 }
 
@@ -166,21 +167,21 @@ count_wait(){
 
   for proc_screen in ${!WATCH_PROCESS[@]};
     do
-    PROC_COUNT=`ps -ef | grep $proc_screen | grep -v grep | wc -l`
+    screen_name="${SCREEN_PREFIX}-${proc_screen}"
+    PROC_COUNT=`ps -ef | grep $screen_name | grep -v grep | wc -l`
     if [ $PROC_COUNT != 0 ]; then
       i=${interval}
       if [ -n "$3" ]; then
-        screen_name="${SCREEN_PREFIX}-$proc_screen"
         # 実行前にメッセージ送信する
-        screen_sender $screen_name "${BROADCAST_COMMAND} $3"
+        screen_sender $proc_screen "${BROADCAST_COMMAND} $3"
       fi
       while [ ${i} -ne 0 ]
       do
         if [ ${i} -eq ${interval} ]; then
-          screen_sender $screen_name "${BROADCAST_COMMAND} ${interval} $2"
+          screen_sender $proc_screen "${BROADCAST_COMMAND} ${interval} $2"
         else
           if test `expr ${i} % 15` -eq 0 -o ${i} -le 10; then
-            screen_sender $screen_name "${BROADCAST_COMMAND} ${i} $2"
+            screen_sender $proc_screen "${BROADCAST_COMMAND} ${i} $2"
           fi
         fi
         i=$((${i} - 1))
@@ -197,25 +198,25 @@ count_wait(){
 mc_check(){
   for proc_screen in ${!WATCH_PROCESS[@]};
   do
-    screen_name="${SCREEN_PREFIX}-$proc_screen"
+    screen_name="${SCREEN_PREFIX}-${proc_screen}"
     #監視するプロセスが何個起動しているかカウントする
-    PROC_COUNT=$(ps -ef | grep $screen_name | grep -v grep | wc -l)
+    PROC_COUNT=`ps -ef | grep $screen_name | grep -v grep | wc -l`
 
     # 監視するプロセスが0個場合に、処理を分岐する
     if [ $PROC_COUNT = 0 ]; then
     # 0の場合は、サービスが停止しているので起動する
-      echo "[${YMD}] $screen_name Dead"
+      echo "[${YMD}] $proc_screen Dead"
       mc_start
 
     elif [ $PROC_COUNT -ge 2 ]; then
     # 1以上の場合は、サービスが過剰に起動しているので再起動する
-      echo "[${YMD}] $screen_name Over Running"
+      echo "[${YMD}] $proc_screen Over Running"
       # カウントダウン後 Stop / Start を行う
       mc_restart 10 "§cプロセス異常を検知しました。" &
       wait
     else
     # サービス起動中
-      echo "[${YMD}] $screen_name Alive"
+      echo "[${YMD}] $proc_screen Alive"
     fi
   done
   # echo -1000 > "/proc/`pidof java`/oom_score_adj"
@@ -229,7 +230,6 @@ mc_start(){
   for proc_screen in ${!WATCH_PROCESS[@]};
   do
     start "${proc_screen}" "${WATCH_PROCESS[$proc_screen]}"
-#    start $proc_screen ${WATCH_PROCESS[$proc_screen]}
   done
 }
 
@@ -362,6 +362,10 @@ else
           msg=$(sed -rn '/^# Usage/,${/^#/!q;s/^# ?//;p}' "$SCRIPT_PATH")
           eval $'cat <<__END__\n'"$msg"$'\n__END__\n'
           echo ""
+        ;;
+      version)
+          msg=$(sed -rn '/^# Version/,${/^#/!q;s/^# ?//;p}' "$SCRIPT_PATH")
+          eval $'cat <<__END__\n'"$msg"$'\n__END__\n'
         ;;
       *)
         echo "[${YMD}] command not found $1"
