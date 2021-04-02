@@ -306,8 +306,8 @@ for proc_screen in ${!WATCH_PROCESS[@]};
 jobsCron(){
   # スクリプト用のCronJobを設定する TrueならばInstall処理を行う
   isInstall=$1
-
-  CRON_PATH="/var/spool/cron/${RUN_USER}"
+#  CRON_PATH="/var/spool/cron/${RUN_USER}"
+  CRON_PATH="/var/spool/cron/root"
   LOG_FILE_NAME="\`date +\%Y-\%m-\%d\`_healthcheck.log"
 
   EXEC_SHELL="/bin/sh ${SCRIPT_DIR}/${ME_FILE}"
