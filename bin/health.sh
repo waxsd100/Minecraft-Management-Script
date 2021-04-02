@@ -106,20 +106,21 @@ start(){
   target_dir="${2%/}"
   screen_exec=`echo "screen -AmdS ${screen_name} ${EXEC_COMMAND[$1]}"`
 
-  if [ -d "$target_dir" ]; then
-cat <<EOF > "$target_dir/run.sh"
+  if [ -d "$target_dir/" ]; then
+cat <<'EOF' > "$target_dir/run.sh"
 #!/bin/sh
 cd "${0%/*}" > /dev/null 2>&1
-$screen_exec
-#Version: $VERSION
 EOF
-  fi
+  echo "${screen_exec}" >> "$target_dir/run.sh"
+  echo "#Version: ${VERSION}" >> "$target_dir/run.sh"
+  echo [$YMD] $(chown "${RUN_USER}":"${RUN_USER}" "$target_dir"/run.sh -v)
 
+  fi
   exitCode=0
   PROC_COUNT=`ps -ef | grep $screen_name | grep -v grep | wc -l`
   if [ $PROC_COUNT = 0 ]; then
     as_user "/bin/sh $target_dir/run.sh" || exitCode=$?
-    if [ "$exitCode" = "0" ]; then
+    if [ "$exitCode" = 0 ]; then
       echo "[${YMD}] [$proc_screen] Up"
       send_discord "[$proc_screen] Server Start" "${OUT}" "${LOCAL_IP}" "0x2ECC71"
     else
@@ -207,18 +208,18 @@ mc_check(){
     # 監視するプロセスが0個場合に、処理を分岐する
     if [ $PROC_COUNT = 0 ]; then
     # 0の場合は、サービスが停止しているので起動する
-      echo "[${YMD}] $proc_screen Dead"
+      echo "[${YMD}] [$proc_screen] Dead"
       mc_start
 
     elif [ $PROC_COUNT -ge 2 ]; then
     # 1以上の場合は、サービスが過剰に起動しているので再起動する
-      echo "[${YMD}] $proc_screen Over Running"
+      echo "[${YMD}] [$proc_screen] Over Running"
       # カウントダウン後 Stop / Start を行う
       mc_restart 10 "§cプロセス異常を検知しました。" &
       wait
     else
     # サービス起動中
-      echo "[${YMD}] $proc_screen Alive"
+      echo "[${YMD}] [$proc_screen] Alive"
     fi
   done
   # echo -1000 > "/proc/`pidof java`/oom_score_adj"
@@ -267,7 +268,7 @@ for proc_screen in ${!WATCH_PROCESS[@]};
         screen_sender $proc_screen "save-all"
         screen_sender $proc_screen "save-off"
 
-        TARGET_DIR=`dirname ${WATCH_PROCESS[$proc_screen]}`
+        TARGET_DIR=${WATCH_PROCESS[$proc_screen]}
         MC_VER=`find "${TARGET_DIR}/" -maxdepth 1 -type f -name "spigot*.jar" | gawk -F/ '{print $NF}' | tr -cd '0123456789\n.' | awk '{print substr($0, 1, length($0)-1)}'`
         # MC_VER=`find "${TARGET_DIR}/" -maxdepth 1 -type f -name "spigot*.jar" | gawk -F/ '{print $NF}' | tr -cd '0123456789\n.' | awk '{ $a = substr($0, 2); sub(/.$/,"",$a); print $a }'`
         # cd $TARGET_DIR
@@ -290,6 +291,7 @@ for proc_screen in ${!WATCH_PROCESS[@]};
             (cd ${TARGET_DIR}/ && tar cf - ${world}/ | pv -s $(du -sb ${world} | awk '{print $1}') | bzip2 > "${ZIP_FILE_NAME}.tar.bz2" && mv "${ZIP_FILE_NAME}.tar.bz2" ${BACKUP_TO} --force)
     #        screen_sender $proc_screen "${BROADCAST_COMMAND} §aBackup Success ${ARC_FILE}"
             echo "[${YMD}] Backup Success ${ARC_FILE}"
+            echo "${BACKUP_TO}/${ZIP_FILE_NAME}.tar.bz2"
           fi
       done
       screen_sender $proc_screen "save-on"
