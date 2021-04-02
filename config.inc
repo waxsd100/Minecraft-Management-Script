@@ -30,4 +30,4 @@ readonly DISCORD_WEB_HOOK_URL="https://discordapp.com/api/webhooks/###########/#
 # Discord通知フラグ
 readonly DISCORD_NOTICE=false
 
-# Version: 0.0.2
+# Version: 0.0.3

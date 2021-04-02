@@ -24,9 +24,9 @@
 #
 # Twitter: wakokara
 # GitHub: waxsd100
-# Version: 0.0.2
+# Version: 0.0.3
 
-VERSION="0.0.2"
+VERSION="0.0.3"
 exec {lock_fd}< "$0"
 flock --nonblock ${lock_fd} || echo "[ERROR] Duplicate startup"
 cd "${0%/*}" > /dev/null 2>&1 || :
