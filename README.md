@@ -1,5 +1,7 @@
 #  minecraft Server Health Check and Management Script
 
+日本語説明: https://github.com/waxsd100/Minecraft-Management-Script/blob/master/README-jp.md
+
 see BungeeCord version   
 https://gist.github.com/waxsd100/1d80bc70a07ebbaeccaa5bd98ed99168
 
