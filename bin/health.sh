@@ -87,10 +87,12 @@ as_user() {
 screen_sender(){
   # $1 screenName
   # $2 execCommand
-  screen_name="${SCREEN_PREFIX}-$1"
-  for pid in `screen -list | grep $screen_name | cut -f1 -d'.' | sed 's/\W//g'`
+  proc_screen="$1"
+  screen_name="${SCREEN_PREFIX}-${proc_screen}"
+  pid_list=$(as_user "screen -list | grep $screen_name | cut -f1 -d'.' | sed 's/\W//g'")
+  for pid in $pid_list
   do
-    SEND_SCREEN="screen -p 0 -S ${pid}.$1 -X eval"
+    SEND_SCREEN="screen -p 0 -S ${pid}.$screen_name -X eval"
     echo "[${YMD}] ${pid} $1 > $2"
     as_user "${SEND_SCREEN} 'stuff \"$2\"\015'"
   done
@@ -140,7 +142,8 @@ stop(){
     OUT=`echo "[${YMD}] [$proc_screen] Down"`
   else
     OUT=`echo "[${YMD}] [$proc_screen] Down Oops"`
-    for pid in `screen -list | grep $proc_screen | cut -f1 -d'.' | sed 's/\W//g'`
+    pid_list=$(as_user "screen -list | grep $screen_name | cut -f1 -d'.' | sed 's/\W//g'")
+    for pid in $pid_list
     do
       echo "${pid} killed"
       kill ${pid}
