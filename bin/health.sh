@@ -30,7 +30,7 @@ VERSION="0.0.2"
 exec {lock_fd}< "$0"
 flock --nonblock ${lock_fd} || echo "[ERROR] Duplicate startup"
 cd "${0%/*}" > /dev/null 2>&1 || :
-declare -A WATCH_PROCESS;
+declare -A SERVER_PROPERTIES;
 declare -A EXEC_COMMAND;
 
 readonly ME_FILE=$(basename $0)
@@ -168,7 +168,7 @@ count_wait(){
     interval=$STOP_INTERVAL
   fi
 
-  for proc_screen in ${!WATCH_PROCESS[@]};
+  for proc_screen in ${!SERVER_PROPERTIES[@]};
     do
     screen_name="${SCREEN_PREFIX}-${proc_screen}"
     PROC_COUNT=`ps -ef | grep $screen_name | grep -v grep | wc -l`
@@ -199,7 +199,7 @@ count_wait(){
 
 # stop/start機能 #########################################################################################
 mc_check(){
-  for proc_screen in ${!WATCH_PROCESS[@]};
+  for proc_screen in ${!SERVER_PROPERTIES[@]};
   do
     screen_name="${SCREEN_PREFIX}-${proc_screen}"
     #監視するプロセスが何個起動しているかカウントする
@@ -230,9 +230,9 @@ mc_check(){
 # 起動処理 #################################################################################
 mc_start(){
   jobsCron true
-  for proc_screen in ${!WATCH_PROCESS[@]};
+  for proc_screen in ${!SERVER_PROPERTIES[@]};
   do
-    start "${proc_screen}" "${WATCH_PROCESS[$proc_screen]}"
+    start "${proc_screen}" "${SERVER_PROPERTIES[$proc_screen]}"
   done
 }
 
@@ -240,7 +240,7 @@ mc_start(){
 mc_stop(){
   jobsCron false
   count_wait "$1" "秒後に停止します。" "$2"
-  for proc_screen in ${!WATCH_PROCESS[@]};
+  for proc_screen in ${!SERVER_PROPERTIES[@]};
   do
     stop $proc_screen
   done
@@ -256,7 +256,7 @@ mc_restart(){
 
 # バックアップ処理 #################################################################################
 mc_backup_world() {
-for proc_screen in ${!WATCH_PROCESS[@]};
+for proc_screen in ${!SERVER_PROPERTIES[@]};
   do
     screen_name="${SCREEN_PREFIX}-${proc_screen}"
     PROC_COUNT=`ps -ef | grep $screen_name | grep -v grep | wc -l`
@@ -268,7 +268,7 @@ for proc_screen in ${!WATCH_PROCESS[@]};
         screen_sender $proc_screen "save-all"
         screen_sender $proc_screen "save-off"
 
-        TARGET_DIR=${WATCH_PROCESS[$proc_screen]}
+        TARGET_DIR=${SERVER_PROPERTIES[$proc_screen]}
         MC_VER=`find "${TARGET_DIR}/" -maxdepth 1 -type f -name "spigot*.jar" | gawk -F/ '{print $NF}' | tr -cd '0123456789\n.' | awk '{print substr($0, 1, length($0)-1)}'`
         # MC_VER=`find "${TARGET_DIR}/" -maxdepth 1 -type f -name "spigot*.jar" | gawk -F/ '{print $NF}' | tr -cd '0123456789\n.' | awk '{ $a = substr($0, 2); sub(/.$/,"",$a); print $a }'`
         # cd $TARGET_DIR
