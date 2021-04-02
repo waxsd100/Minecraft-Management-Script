@@ -2,7 +2,7 @@
 #
 # Usage: Minecraft Health Check & Backup Script [script mode] [option]
 #
-#   Prerequisite software: jq , pv
+#   Prerequisite software: jq, pv, screen
 #   Unexpected results can occur.
 #   Be sure to configure the Config file before running.
 # Options:
@@ -22,15 +22,16 @@
 #
 #            [message] Send a broadcast message to the server before stopping
 #
-# Version: 0.0.2
 # Twitter: wakokara
 # GitHub: waxsd100
-#
+# Version: 0.0.3
 
+VERSION="0.0.3"
 exec {lock_fd}< "$0"
 flock --nonblock ${lock_fd} || echo "[ERROR] Duplicate startup"
 cd "${0%/*}" > /dev/null 2>&1 || :
-declare -A WATCH_PROCESS;
+declare -A SERVER_PROPERTIES;
+declare -A EXEC_COMMAND;
 
 readonly ME_FILE=$(basename $0)
 readonly SCRIPT_DIR=$(cd -- "$(dirname -- "$1")" && pwd)
@@ -41,10 +42,10 @@ readonly LOG_DIR="$(cd .. "$(dirname -- "$1")" && pwd)/log/"
 readonly LOCAL_IP=`ip -f inet -o addr show eth0|cut -d\  -f 7 | cut -d/ -f 1`
 
 # 表示設定
-readonly RESET=$'\e[0m'
 readonly BOLD=$'\e[1m'
 readonly RED=$'\e[1;31m'
 readonly GREEN=$'\e[1;32m'
+readonly RESET=$'\e[0m'
 readonly YMD=$(date '+%y/%m/%d %H:%M:%S')
 
 
@@ -86,10 +87,12 @@ as_user() {
 screen_sender(){
   # $1 screenName
   # $2 execCommand
-
-  for pid in `screen -list | grep $1 | cut -f1 -d'.' | sed 's/\W//g'`
+  proc_screen="$1"
+  screen_name="${SCREEN_PREFIX}-${proc_screen}"
+  pid_list=$(as_user "screen -list | grep $screen_name | cut -f1 -d'.' | sed 's/\W//g'")
+  for pid in $pid_list
   do
-    SEND_SCREEN="screen -p 0 -S ${pid}.$1 -X eval"
+    SEND_SCREEN="screen -p 0 -S ${pid}.$screen_name -X eval"
     echo "[${YMD}] ${pid} $1 > $2"
     as_user "${SEND_SCREEN} 'stuff \"$2\"\015'"
   done
@@ -98,38 +101,55 @@ screen_sender(){
 start(){
   # $1 screenName
   # $2 shellCommand
+  proc_screen="$1"
+  screen_name="${SCREEN_PREFIX}-${proc_screen}"
+  target_dir="${2%/}"
+  screen_exec=`echo "screen -AmdS ${screen_name} ${EXEC_COMMAND[$1]}"`
+
+  if [ -d "$target_dir/" ]; then
+cat <<'EOF' > "$target_dir/run.sh"
+#!/bin/sh
+cd "${0%/*}" > /dev/null 2>&1
+EOF
+  echo "${screen_exec}" >> "$target_dir/run.sh"
+  echo "#Version: ${VERSION}" >> "$target_dir/run.sh"
+  echo [$YMD] $(chown "${RUN_USER}":"${RUN_USER}" "$target_dir"/run.sh -v)
+
+  fi
   exitCode=0
-  PROC_COUNT=`ps -ef | grep $proc_screen | grep -v grep | wc -l`
+  PROC_COUNT=`ps -ef | grep $screen_name | grep -v grep | wc -l`
   if [ $PROC_COUNT = 0 ]; then
-    as_user "/bin/sh $2" || exitCode=$?
-    if [ "$exitCode" = "0" ]; then
-      echo "[${YMD}] $1 Up"
-      send_discord "$1 Server Start" "${OUT}" "${LOCAL_IP}" "0x2ECC71"
+    as_user "/bin/sh $target_dir/run.sh" || exitCode=$?
+    if [ "$exitCode" = 0 ]; then
+      echo "[${YMD}] [$proc_screen] Up"
+      send_discord "[$proc_screen] Server Start" "${OUT}" "${LOCAL_IP}" "0x2ECC71"
     else
-      echo "[${YMD}] $1 Up Oops"
-      send_discord "$1 Server Start Oops..." "${OUT}" "${LOCAL_IP}" "0x2ECC71"
+      echo "[${YMD}] [$proc_screen] Up Oops"
+      send_discord "[$proc_screen] Server Start Oops..." "${OUT}" "${LOCAL_IP}" "0x2ECC71"
     fi
   else
-    echo "[${YMD}] $1 is up and running"
-    send_discord "$1 is up and running..." "${OUT}" "${LOCAL_IP}" "0x2ECC71"
+    echo "[${YMD}] [$proc_screen] is up and running"
+    send_discord "[$proc_screen] is up and running..." "${OUT}" "${LOCAL_IP}" "0x2ECC71"
   fi
 }
 
 stop(){
   # $1 screenName
   # $2 ScreenCommand
-  screen_sender $1 $STOP_COMMAND
+  proc_screen="$1"
+  screen_sender $proc_screen $STOP_COMMAND
   if [ $? = 0 ]; then
-    OUT=`echo "[${YMD}] $1 Down"`
+    OUT=`echo "[${YMD}] [$proc_screen] Down"`
   else
-    OUT=`echo "[${YMD}] $1 Down Oops"`
-    for pid in `screen -list | grep $1 | cut -f1 -d'.' | sed 's/\W//g'`
+    OUT=`echo "[${YMD}] [$proc_screen] Down Oops"`
+    pid_list=$(as_user "screen -list | grep $screen_name | cut -f1 -d'.' | sed 's/\W//g'")
+    for pid in $pid_list
     do
       echo "${pid} killed"
       kill ${pid}
     done
   fi
-  send_discord "$1 Server Stop" "${OUT}" "${LOCAL_IP}" "0xE91E63"
+  send_discord "$proc_screen Server Stop" "${OUT}" "${LOCAL_IP}" "0xE91E63"
 
 }
 
@@ -148,9 +168,10 @@ count_wait(){
     interval=$STOP_INTERVAL
   fi
 
-  for proc_screen in ${!WATCH_PROCESS[@]};
+  for proc_screen in ${!SERVER_PROPERTIES[@]};
     do
-    PROC_COUNT=`ps -ef | grep $proc_screen | grep -v grep | wc -l`
+    screen_name="${SCREEN_PREFIX}-${proc_screen}"
+    PROC_COUNT=`ps -ef | grep $screen_name | grep -v grep | wc -l`
     if [ $PROC_COUNT != 0 ]; then
       i=${interval}
       if [ -n "$3" ]; then
@@ -170,7 +191,7 @@ count_wait(){
         sleep 1
       done
     elif [ $PROC_COUNT == 0 ]; then
-      OUT=`echo "[${YMD}] $proc_screen empty process"`
+      OUT=`echo "[${YMD}] $proc_screen is empty process"`
       echo ${OUT}
     fi
   done
@@ -178,26 +199,27 @@ count_wait(){
 
 # stop/start機能 #########################################################################################
 mc_check(){
-  for proc_screen in ${!WATCH_PROCESS[@]};
+  for proc_screen in ${!SERVER_PROPERTIES[@]};
   do
+    screen_name="${SCREEN_PREFIX}-${proc_screen}"
     #監視するプロセスが何個起動しているかカウントする
-    PROC_COUNT=$(ps -ef | grep $proc_screen | grep -v grep | wc -l)
+    PROC_COUNT=`ps -ef | grep $screen_name | grep -v grep | wc -l`
 
     # 監視するプロセスが0個場合に、処理を分岐する
     if [ $PROC_COUNT = 0 ]; then
     # 0の場合は、サービスが停止しているので起動する
-      echo "[${YMD}] $proc_screen Dead"
+      echo "[${YMD}] [$proc_screen] Dead"
       mc_start
 
     elif [ $PROC_COUNT -ge 2 ]; then
     # 1以上の場合は、サービスが過剰に起動しているので再起動する
-      echo "[${YMD}] $proc_screen Over Running"
+      echo "[${YMD}] [$proc_screen] Over Running"
       # カウントダウン後 Stop / Start を行う
       mc_restart 10 "§cプロセス異常を検知しました。" &
       wait
     else
     # サービス起動中
-      echo "[${YMD}] $proc_screen Alive"
+      echo "[${YMD}] [$proc_screen] Alive"
     fi
   done
   # echo -1000 > "/proc/`pidof java`/oom_score_adj"
@@ -208,9 +230,9 @@ mc_check(){
 # 起動処理 #################################################################################
 mc_start(){
   jobsCron true
-  for proc_screen in ${!WATCH_PROCESS[@]};
+  for proc_screen in ${!SERVER_PROPERTIES[@]};
   do
-    start $proc_screen ${WATCH_PROCESS[$proc_screen]}
+    start "${proc_screen}" "${SERVER_PROPERTIES[$proc_screen]}"
   done
 }
 
@@ -218,7 +240,7 @@ mc_start(){
 mc_stop(){
   jobsCron false
   count_wait "$1" "秒後に停止します。" "$2"
-  for proc_screen in ${!WATCH_PROCESS[@]};
+  for proc_screen in ${!SERVER_PROPERTIES[@]};
   do
     stop $proc_screen
   done
@@ -234,41 +256,49 @@ mc_restart(){
 
 # バックアップ処理 #################################################################################
 mc_backup_world() {
-for proc_screen in ${!WATCH_PROCESS[@]};
+for proc_screen in ${!SERVER_PROPERTIES[@]};
   do
-    screen_sender $proc_screen "${BROADCAST_COMMAND} §9Auto Backup Start"
-    screen_sender $proc_screen "save-all"
-    screen_sender $proc_screen "save-off"
+    screen_name="${SCREEN_PREFIX}-${proc_screen}"
+    PROC_COUNT=`ps -ef | grep $screen_name | grep -v grep | wc -l`
+    if [ $PROC_COUNT = 0 ]; then
+      #TODO Make it possible to take backups even when the server is not running.
+      echo "[${YMD}] The server must be running for the backup to take place. "
+    else
+        screen_sender $proc_screen "${BROADCAST_COMMAND} §9Auto Backup Start"
+        screen_sender $proc_screen "save-all"
+        screen_sender $proc_screen "save-off"
 
-    TARGET_DIR=`dirname ${WATCH_PROCESS[$proc_screen]}`
-    MC_VER=`find "${TARGET_DIR}/" -maxdepth 1 -type f -name "spigot*.jar" | gawk -F/ '{print $NF}' | tr -cd '0123456789\n.' | awk '{print substr($0, 1, length($0)-1)}'`
-    # MC_VER=`find "${TARGET_DIR}/" -maxdepth 1 -type f -name "spigot*.jar" | gawk -F/ '{print $NF}' | tr -cd '0123456789\n.' | awk '{ $a = substr($0, 2); sub(/.$/,"",$a); print $a }'`
-    # cd $TARGET_DIR
-    MC_SERVER_NAME=`echo "${proc_screen}" | sed 's/minecraft-//g'`
-    MC_BACKUP_WORLD_BASE=$(date '+%Y-%m-%d')
-    MC_BACKUP_FILE="$(date '+h%H')-${MC_VER}"
-
-    for world in ${TARGET_WORLDS[@]};
-    do
-      BACKUP_TO="${MC_BACKUP_DIR_BASE}${MC_SERVER_NAME}/${MC_BACKUP_WORLD_BASE}/${MC_BACKUP_FILE}"
-      mkdir -p $BACKUP_TO
-      ZIP_FILE_NAME="${MC_SERVER_NAME}_${world}"
-      ARC_FILE="${BACKUP_TO}/${ZIP_FILE_NAME}"
-      TARGET="${TARGET_DIR}/${world}"
-      if [ -e ${TARGET} ]; then
-        # echo "zip -r ${ARC_FILE} ${TARGET} 1>/dev/null"
-        # (cd ${TARGET_DIR}/ && zip -r ${ZIP_FILE_NAME} ${world} && mv ${ZIP_FILE_NAME} ${BACKUP_TO} --force) 1>/dev/null
-        # UnArchives Command ( pv data.tar | tar xf - )
-        (cd ${TARGET_DIR}/ && tar cf - ${world}/ | pv -s $(du -sb ${world} | awk '{print $1}') | bzip2 > "${ZIP_FILE_NAME}.tar.bz2" && mv "${ZIP_FILE_NAME}.tar.bz2" ${BACKUP_TO} --force)
-#        screen_sender $proc_screen "${BROADCAST_COMMAND} §aBackup Success ${ARC_FILE}"
-        echo "[${YMD}] Backup Success ${ARC_FILE}"
-      fi
-  done
-  screen_sender $proc_screen "save-on"
-
-  find ${MC_BACKUP_DIR_BASE} -name '*.zip' -mtime +${BACKUP_LEAVE_DAYS} -delete
-  screen_sender $proc_screen "${BROADCAST_COMMAND} §9Backup Complete"
-  echo "[${YMD}] Backup Complete"
+        TARGET_DIR=${SERVER_PROPERTIES[$proc_screen]}
+        MC_VER=`find "${TARGET_DIR}/" -maxdepth 1 -type f -name "spigot*.jar" | gawk -F/ '{print $NF}' | tr -cd '0123456789\n.' | awk '{print substr($0, 1, length($0)-1)}'`
+        # MC_VER=`find "${TARGET_DIR}/" -maxdepth 1 -type f -name "spigot*.jar" | gawk -F/ '{print $NF}' | tr -cd '0123456789\n.' | awk '{ $a = substr($0, 2); sub(/.$/,"",$a); print $a }'`
+        # cd $TARGET_DIR
+        SERVER_NAME_GET_CMD="echo "${proc_screen}" | sed 's/${SCREEN_PREFIX}-//g'"
+        MC_SERVER_NAME=$(eval "${SERVER_NAME_GET_CMD}")
+        MC_BACKUP_WORLD_BASE=$(date '+%Y-%m-%d')
+        MC_BACKUP_FILE="$(date '+h%H')-${MC_VER}"
+        BASE_DIR="${MC_BACKUP_DIR_BASE%/}"
+        for world in ${TARGET_WORLDS[@]};
+        do
+          BACKUP_TO="${BASE_DIR}/${MC_SERVER_NAME}/${MC_BACKUP_WORLD_BASE}/${MC_BACKUP_FILE}"
+          mkdir -p $BACKUP_TO
+          ZIP_FILE_NAME="${MC_SERVER_NAME}_${world}"
+          ARC_FILE="${BACKUP_TO}/${ZIP_FILE_NAME}"
+          TARGET="${TARGET_DIR}/${world}"
+          if [ -e ${TARGET} ]; then
+            # echo "zip -r ${ARC_FILE} ${TARGET} 1>/dev/null"
+            # (cd ${TARGET_DIR}/ && zip -r ${ZIP_FILE_NAME} ${world} && mv ${ZIP_FILE_NAME} ${BACKUP_TO} --force) 1>/dev/null
+            # UnArchives Command ( pv data.tar | tar xf - )
+            (cd ${TARGET_DIR}/ && tar cf - ${world}/ | pv -s $(du -sb ${world} | awk '{print $1}') | bzip2 > "${ZIP_FILE_NAME}.tar.bz2" && mv "${ZIP_FILE_NAME}.tar.bz2" ${BACKUP_TO} --force)
+    #        screen_sender $proc_screen "${BROADCAST_COMMAND} §aBackup Success ${ARC_FILE}"
+            echo "[${YMD}] Backup Success ${ARC_FILE}"
+            echo "${BACKUP_TO}/${ZIP_FILE_NAME}.tar.bz2"
+          fi
+      done
+      screen_sender $proc_screen "save-on"
+      screen_sender $proc_screen "${BROADCAST_COMMAND} §9Backup Complete"
+      echo "[${YMD}] Backup Complete"
+      find ${BASE_DIR}/${MC_SERVER_NAME} -name '*.tar.bz2' -mtime +${BACKUP_LEAVE_DAYS} -delete
+    fi
   done
 }
 
@@ -276,14 +306,14 @@ for proc_screen in ${!WATCH_PROCESS[@]};
 jobsCron(){
   # スクリプト用のCronJobを設定する TrueならばInstall処理を行う
   isInstall=$1
-
-  CRON_PATH="/var/spool/cron/${RUN_USER}"
+#  CRON_PATH="/var/spool/cron/${RUN_USER}"
+  CRON_PATH="/var/spool/cron/root"
   LOG_FILE_NAME="\`date +\%Y-\%m-\%d\`_healthcheck.log"
 
   EXEC_SHELL="/bin/sh ${SCRIPT_DIR}/${ME_FILE}"
   OUTPUT_LOG="${LOG_DIR}${LOG_FILE_NAME} 2>&1"
 
-  CRON_TAG="### Minecraft HealthCheck Cron ${ME_FILE} ###"
+  CRON_TAG="### Minecraft HealthCheck Version: $VERSION Cron ${ME_FILE} ###"
   BACKUP_CRON="0 * * * * ${EXEC_SHELL} backup >> ${OUTPUT_LOG}"
   CHECK_CRON="* * * * * ${EXEC_SHELL} check >> ${OUTPUT_LOG}"
   LOG_ROTATE="@daily find ${LOG_DIR}/ -name '*.log' -mtime +${LOG_LEAVE_DAYS} -delete"
@@ -343,9 +373,21 @@ else
           eval $'cat <<__END__\n'"$msg"$'\n__END__\n'
           echo ""
         ;;
+      version)
+          msg=$(sed -rn '/^# Version/,${/^#/!q;s/^# ?//;p}' "$SCRIPT_PATH")
+          eval $'cat <<__END__\n'"$msg"$'\n__END__\n'
+        ;;
       *)
         echo "[${YMD}] command not found $1"
         exit 0
   esac
 fi
-exit 0
+#    （＼　　　_
+#　　 ｜ )　　 ／ )
+#　　 / ｜　　(　/
+#　　/　/　　 ｜｜
+#　 /　｜　　 ｜｜
+#　 ＼　＼　　/ ｜
+#　　 ＼　＼／　/
+#　　＿｜　　　/＿＿
+#　　 ￣三三三二￣
