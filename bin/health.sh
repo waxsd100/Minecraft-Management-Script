@@ -51,7 +51,6 @@ readonly YMD=$(date '+%y/%m/%d %H:%M:%S')
 
 # Import
 . ../config.inc
-. ../health.inc
 source ../exception.sm
 
 send_discord() {
