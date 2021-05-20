@@ -7,9 +7,9 @@ https://gist.github.com/waxsd100/1d80bc70a07ebbaeccaa5bd98ed99168
 
 0. Minecraft Server Install
 1. `yum install screen jq pv`
-2. Edit the health.inc and config.inc file (put it in the same directory)
+2. Edit the config.inc file (put it in the same directory)
 ```
-# health.inc
+# config.inc
 
 # Set the Server Name and Server Path
 SERVER_PROPERTIES=(
@@ -53,6 +53,11 @@ STOP_COMMAND="stop"
 ```
 
 # Use Command 
+
+```diff
+- Note. It must be run as the root user.
+```
+
 Usage: Minecraft Health Check & Backup Script [script mode] [option]  
 
   Unexpected results can occur.  
