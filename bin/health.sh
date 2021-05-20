@@ -75,13 +75,16 @@ send_discord() {
 as_user() {
 # ユーザ別実行
   ME=`whoami`
+  if [ ${ME} == "root" ] ; then
     if [ ${ME} == ${RUN_USER} ] ; then
         bash -c "$1"
     else
         su - ${RUN_USER} -c "$1"
-    fi
+    fi    
+  else
+    echo "[ERROR] Run as the root user."
+  fi
 }
-
 
 screen_sender(){
   # $1 screenName
