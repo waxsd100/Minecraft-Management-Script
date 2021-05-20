@@ -5,9 +5,9 @@ https://gist.github.com/waxsd100/1d80bc70a07ebbaeccaa5bd98ed99168
 
 0. Minecraft サーバーインストール
 1. `yum install screen jq pv` を実行する。
-2. health.inc と config.inc ファイルを編集する（同じディレクトリに置く）。
+2. config.inc ファイルを編集する（同じディレクトリに置く）。
 ```
-# health.inc
+# config.inc
 
 # サーバー名とサーバーパスの設定
 SERVER_PROPERTIES=(
@@ -36,21 +36,25 @@ TARGET_WORLDS=("world" "world_nether" "world_the_end")
 5. 高度な設定
    以下の設定を変更したい場合は、config.incの変数を変更してください。
 
-スクリプトを実行するユーザーを変更します。L14
-
+Screenを実行するユーザーを変更します。
 ```
 RUN_USER="minecraft"
 ```
-カウントダウンタイマーが止まるまで変更します。L17
+カウントダウンタイマーが止まるまで変更します。
 ```
 STOP_INTERVAL=60
 ```
-停止時にScreenSessionに送信するコマンドを設定する。L20
+停止時にScreenSessionに送信するコマンドを設定する。
 ```
 STOP_COMMAND="stop"
 ```
 
 # 使用コマンド
+
+```diff
+- 注 root ユーザで実行する必要があります。
+```
+
 使い方を説明します。Minecraft ヘルスチェック＆バックアップスクリプト [スクリプトモード] [オプション]
 
 予期せぬ結果が発生する可能性があります。
