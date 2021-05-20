@@ -239,7 +239,17 @@ mc_start(){
 # 停止処理 #################################################################################
 mc_stop(){
   jobsCron false
-  count_wait "$1" "秒後に停止します。" "$2"
+  sendMessage="秒後に停止します。"
+  initMessage=""
+  if [ -n "$2" ]; then
+    sendMessage="$2"
+  fi
+
+  if [ -n "$3" ]; then
+    initMessage="$3"
+  fi
+
+  count_wait "$1" "${sendMessage}" "${initMessage}"
   for proc_screen in ${!SERVER_PROPERTIES[@]};
   do
     stop $proc_screen
@@ -248,8 +258,12 @@ mc_stop(){
 
 # 再起動処理 #################################################################################
 mc_restart(){
-  count_wait "$1" "秒後に再起動します。" "$2"
-  mc_stop
+  sendMessage="秒後に再起動します。"
+
+  if [ -n "$2" ]; then
+    sendMessage="$2"
+  fi
+  mc_stop "$1" "${sendMessage}" "$3"
   sleep 3
   mc_start
 }
@@ -344,11 +358,11 @@ else
         exit 0
         ;;
       stop)
-        mc_stop "$2" "$3"
+        mc_stop "$2" "$3" "$4"
         exit 0
         ;;
       restart)
-        mc_restart "$2" "$3"
+        mc_restart "$2" "$3" "$4"
         exit 0
           ;;
       check)
