@@ -1,10 +1,10 @@
 # Server 設定
 
 # Server ディレクトリを設定する
-SERVER_PROPERTIES=(["uro"]="/var/minecraft/server/uro_1-16/")
+SERVER_PROPERTIES=(["minecraft"]="/opt/minecraft/server/")
 
 # 実行コマンドを定義
-EXEC_COMMAND=(["uro"]="java -Xms7G -Xmx14G -jar spigot-*.jar nogui")
+EXEC_COMMAND=(["minecraft"]="java -Xms7G -Xmx14G -jar spigot-*.jar nogui")
 
 # BACKUP TARGET World
 TARGET_WORLDS=("world" "world_nether" "world_the_end")
