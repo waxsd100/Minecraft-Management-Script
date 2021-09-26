@@ -64,15 +64,15 @@ Usage: Minecraft Health Check & Backup Script [script mode] [option]
   Be sure to configure config.inc before running. 
 Options:  
 
-  start)    
-      Minecraft Server Start and CronJob append  
-  stop)    
+*  start)    
+    Minecraft Server Start and CronJob append  
+*  stop)    
      Minecraft Server Stop and CronJob remove  
-  restart)    
+*  restart)    
      Minecraft Server restart  
-  check)    
+*  check)    
       Minecraft Server Start or Stop check  
-  backup)    
+*  backup)    
    Minecraft Server Backup  
 
 Arguments:  
