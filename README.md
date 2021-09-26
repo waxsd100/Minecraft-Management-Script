@@ -61,7 +61,7 @@ STOP_COMMAND="stop"
 Usage: Minecraft Health Check & Backup Script [script mode] [option]  
 
   Unexpected results can occur.  
-  Be sure to configure the Config file before running.  
+  Be sure to configure config.inc before running. 
 Options:  
 
   start)    
