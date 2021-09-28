@@ -285,17 +285,18 @@ for proc_screen in ${!SERVER_PROPERTIES[@]};
         screen_sender $proc_screen "save-off"
 
         TARGET_DIR=${SERVER_PROPERTIES[$proc_screen]}
-        MC_VER=`find "${TARGET_DIR}/" -maxdepth 1 -type f -name "spigot*.jar" | gawk -F/ '{print $NF}' | tr -cd '0123456789\n.' | awk '{print substr($0, 1, length($0)-1)}'`
+        # MC_VER=`find "${TARGET_DIR}/" -maxdepth 1 -type f -name "spigot*.jar" | gawk -F/ '{print $NF}' | tr -cd '0123456789\n.' | awk '{print substr($0, 1, length($0)-1)}'`
         # MC_VER=`find "${TARGET_DIR}/" -maxdepth 1 -type f -name "spigot*.jar" | gawk -F/ '{print $NF}' | tr -cd '0123456789\n.' | awk '{ $a = substr($0, 2); sub(/.$/,"",$a); print $a }'`
         # cd $TARGET_DIR
         SERVER_NAME_GET_CMD="echo "${proc_screen}" | sed 's/${SCREEN_PREFIX}-//g'"
         MC_SERVER_NAME=$(eval "${SERVER_NAME_GET_CMD}")
         MC_BACKUP_WORLD_BASE=$(date '+%Y-%m-%d')
-        MC_BACKUP_FILE="$(date '+h%H')-${MC_VER}"
+        # MC_BACKUP_FILE="$(date '+h%H')-${MC_VER}"
+        MC_BACKUP_FILE="$(date '+h%H')"
         BASE_DIR="${MC_BACKUP_DIR_BASE%/}"
         for world in ${TARGET_WORLDS[@]};
         do
-          BACKUP_TO="${BASE_DIR}/${MC_SERVER_NAME}/${MC_BACKUP_WORLD_BASE}/${MC_BACKUP_FILE}"
+          BACKUP_TO="${BASE_DIR}/${MC_SERVER_NAME}/${MC_BACKUP_WORLD_BASE}-${MC_BACKUP_FILE}"
           mkdir -p $BACKUP_TO
           ZIP_FILE_NAME="${MC_SERVER_NAME}_${world}"
           ARC_FILE="${BACKUP_TO}/${ZIP_FILE_NAME}"
