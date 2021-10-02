@@ -6,7 +6,6 @@ dir=`pwd`
 \cp -rf $dir/log/ "$temp_dir"
 \cp -f $dir/config.inc "$temp_dir"
 
-git pull
 git fetch origin
 git reset --hard origin/master
 
