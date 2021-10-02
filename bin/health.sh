@@ -61,12 +61,12 @@ send_discord() {
 
   if "${DISCORD_NOTICE}"; then
     curl -LsS https://raw.githubusercontent.com/ChaoticWeg/discord.sh/master/discord.sh | bash -s -- \
-    --title "${title}" \
-    --description "${description}" \
-    --footer "${footer}" \
-    --color "${color}" \
-    --webhook-url "${DISCORD_WEB_HOOK_URL}" \
-    --timestamp
+      --title "${title}" \
+      --description "${description}" \
+      --footer "${footer}" \
+      --color "${color}" \
+      --webhook-url "${DISCORD_WEB_HOOK_URL}" \
+      --timestamp
   fi
 }
 
@@ -265,45 +265,49 @@ mc_backup_world() {
   for proc_screen in ${!SERVER_PROPERTIES[@]}; do
     screen_name="${SCREEN_PREFIX}-${proc_screen}"
     PROC_COUNT=$(ps -ef | grep $screen_name | grep -v grep | wc -l)
-    if [ $PROC_COUNT = 0 ]; then
-      #TODO Make it possible to take backups even when the server is not running.
-      echo "[${YMD}] The server must be running for the backup to take place. "
-    else
+
+    TARGET_DIR=${SERVER_PROPERTIES[$proc_screen]}
+    # MC_VER=`find "${TARGET_DIR}/" -maxdepth 1 -type f -name "spigot*.jar" | gawk -F/ '{print $NF}' | tr -cd '0123456789\n.' | awk '{print substr($0, 1, length($0)-1)}'`
+    # MC_VER=`find "${TARGET_DIR}/" -maxdepth 1 -type f -name "spigot*.jar" | gawk -F/ '{print $NF}' | tr -cd '0123456789\n.' | awk '{ $a = substr($0, 2); sub(/.$/,"",$a); print $a }'`
+    # cd $TARGET_DIR
+    SERVER_NAME_GET_CMD="echo "${proc_screen}" | sed 's/${SCREEN_PREFIX}-//g'"
+    MC_SERVER_NAME=$(eval "${SERVER_NAME_GET_CMD}")
+    MC_BACKUP_WORLD_BASE=$(date '+%Y-%m-%d')
+    # MC_BACKUP_FILE="$(date '+h%H')-${MC_VER}"
+    MC_BACKUP_FILE="$(date '+h%H')"
+    BASE_DIR="${MC_BACKUP_DIR_BASE%/}"
+
+    if [ $PROC_COUNT != 0 ]; then
       screen_sender $proc_screen "${BROADCAST_COMMAND} §9Auto Backup Start"
       screen_sender $proc_screen "save-all"
       screen_sender $proc_screen "save-off"
+    fi
 
-      TARGET_DIR=${SERVER_PROPERTIES[$proc_screen]}
-      # MC_VER=`find "${TARGET_DIR}/" -maxdepth 1 -type f -name "spigot*.jar" | gawk -F/ '{print $NF}' | tr -cd '0123456789\n.' | awk '{print substr($0, 1, length($0)-1)}'`
-      # MC_VER=`find "${TARGET_DIR}/" -maxdepth 1 -type f -name "spigot*.jar" | gawk -F/ '{print $NF}' | tr -cd '0123456789\n.' | awk '{ $a = substr($0, 2); sub(/.$/,"",$a); print $a }'`
-      # cd $TARGET_DIR
-      SERVER_NAME_GET_CMD="echo "${proc_screen}" | sed 's/${SCREEN_PREFIX}-//g'"
-      MC_SERVER_NAME=$(eval "${SERVER_NAME_GET_CMD}")
-      MC_BACKUP_WORLD_BASE=$(date '+%Y-%m-%d')
-      # MC_BACKUP_FILE="$(date '+h%H')-${MC_VER}"
-      MC_BACKUP_FILE="$(date '+h%H')"
-      BASE_DIR="${MC_BACKUP_DIR_BASE%/}"
-      for world in ${TARGET_WORLDS[@]}; do
-        BACKUP_TO="${BASE_DIR}/${MC_SERVER_NAME}/${MC_BACKUP_WORLD_BASE}-${MC_BACKUP_FILE}"
-        mkdir -p $BACKUP_TO
-        ZIP_FILE_NAME="${MC_SERVER_NAME}_${world}"
-        ARC_FILE="${BACKUP_TO}/${ZIP_FILE_NAME}"
-        TARGET="${TARGET_DIR}/${world}"
-        if [ -e ${TARGET} ]; then
-          # echo "zip -r ${ARC_FILE} ${TARGET} 1>/dev/null"
-          # (cd ${TARGET_DIR}/ && zip -r ${ZIP_FILE_NAME} ${world} && mv ${ZIP_FILE_NAME} ${BACKUP_TO} --force) 1>/dev/null
-          # UnArchives Command ( pv data.tar | tar xf - )
-          (cd ${TARGET_DIR}/ && tar cf - ${world}/ | pv -s $(du -sb ${world} | awk '{print $1}') | bzip2 >"${ZIP_FILE_NAME}.tar.bz2" && mv "${ZIP_FILE_NAME}.tar.bz2" ${BACKUP_TO} --force)
-          #        screen_sender $proc_screen "${BROADCAST_COMMAND} §aBackup Success ${ARC_FILE}"
-          echo "[${YMD}] Backup Success ${ARC_FILE}"
-          echo "${BACKUP_TO}/${ZIP_FILE_NAME}.tar.bz2"
+    for world in ${TARGET_WORLDS[@]}; do
+      BACKUP_TO="${BASE_DIR}/${MC_SERVER_NAME}/${MC_BACKUP_WORLD_BASE}-${MC_BACKUP_FILE}"
+      mkdir -p $BACKUP_TO
+      ZIP_FILE_NAME="${MC_SERVER_NAME}_${world}"
+      ARC_FILE="${BACKUP_TO}/${ZIP_FILE_NAME}"
+      TARGET="${TARGET_DIR}/${world}"
+      if [ -e ${TARGET} ]; then
+        # echo "zip -r ${ARC_FILE} ${TARGET} 1>/dev/null"
+        # (cd ${TARGET_DIR}/ && zip -r ${ZIP_FILE_NAME} ${world} && mv ${ZIP_FILE_NAME} ${BACKUP_TO} --force) 1>/dev/null
+        # UnArchives Command ( pv data.tar | tar xf - )
+        (cd ${TARGET_DIR}/ && tar cf - ${world}/ | pv -s $(du -sb ${world} | awk '{print $1}') | bzip2 >"${ZIP_FILE_NAME}.tar.bz2" && mv "${ZIP_FILE_NAME}.tar.bz2" ${BACKUP_TO} --force)
+        # screen_sender $proc_screen "${BROADCAST_COMMAND} §aBackup Success ${ARC_FILE}"
+        echo "[${YMD}] Backup Success ${ARC_FILE}"
+        if [ $PROC_COUNT != 0 ]; then
+          screen_sender $proc_screen "save-all"
         fi
-      done
+      fi
+    done
+    if [ $PROC_COUNT != 0 ]; then
       screen_sender $proc_screen "save-on"
       screen_sender $proc_screen "${BROADCAST_COMMAND} §9Backup Complete"
-      echo "[${YMD}] Backup Complete"
-      find ${BASE_DIR}/${MC_SERVER_NAME} -name '*.tar.bz2' -mtime +${BACKUP_LEAVE_DAYS} -delete
     fi
+
+    echo "[${YMD}] Backup Complete"
+    find "${BASE_DIR}"/"${MC_SERVER_NAME}" -name '*.tar.bz2' -mtime +"${BACKUP_LEAVE_DAYS}" -delete
   done
 }
 
