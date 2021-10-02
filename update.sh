@@ -10,5 +10,5 @@ git pull
 git fetch origin
 git reset --hard origin/master
 
-\cp -rf "$temp_dir"/log/* $dir/
+\cp -rf "$temp_dir"/log/* $dir/log/
 \cp -f  "$temp_dir"/config.inc $dir/
