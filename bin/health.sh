@@ -287,7 +287,8 @@ mc_backup_world() {
     for world in ${TARGET_WORLDS[@]}; do
       BACKUP_TO="${BASE_DIR}/${MC_SERVER_NAME}/${MC_BACKUP_WORLD_BASE}/${MC_BACKUP_FILE}"
       mkdir -p $BACKUP_TO
-      ZIP_FILE_NAME="${MC_SERVER_NAME}_${world}"
+#      ZIP_FILE_NAME="${MC_SERVER_NAME}_${world}"
+      ZIP_FILE_NAME="${world}"
       ARC_FILE="${BACKUP_TO}/${ZIP_FILE_NAME}"
       TARGET="${TARGET_DIR}/${world}"
       if [ -e ${TARGET} ]; then
