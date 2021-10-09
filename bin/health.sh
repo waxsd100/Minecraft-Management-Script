@@ -39,7 +39,7 @@ readonly SCRIPT_DIR=$(cd -- "$(dirname -- "$1")" && pwd)
 readonly SCRIPT_PATH="${SCRIPT_DIR}/${ME_FILE}"
 readonly LOG_DIR="$(cd .. "$(dirname -- "$1")" && pwd)/log/"
 
-readonly LOCAL_IP=$(ip -f inet -o addr show eth0 | cut -d\  -f 7 | cut -d/ -f 1)
+#readonly LOCAL_IP=$(ip -f inet -o addr show eth0 | cut -d\  -f 7 | cut -d/ -f 1)
 
 # 表示設定
 readonly BOLD=$'\e[1m'
@@ -121,14 +121,14 @@ EOF
     as_user "/bin/sh $target_dir/run.sh" || exitCode=$?
     if [ "$exitCode" = 0 ]; then
       echo "[${YMD}] [$proc_screen] Up"
-      send_discord "[$proc_screen] Server Start" "${OUT}" "${LOCAL_IP}" "0x2ECC71"
+      send_discord "[$proc_screen] Server Start" "${OUT}" "${screen_name}" "0x2ECC71"
     else
       echo "[${YMD}] [$proc_screen] Up Oops"
-      send_discord "[$proc_screen] Server Start Oops..." "${OUT}" "${LOCAL_IP}" "0x2ECC71"
+      send_discord "[$proc_screen] Server Start Oops..." "${OUT}" "${screen_name}" "0x2ECC71"
     fi
   else
     echo "[${YMD}] [$proc_screen] is up and running"
-    send_discord "[$proc_screen] is up and running..." "${OUT}" "${LOCAL_IP}" "0x2ECC71"
+    send_discord "[$proc_screen] is up and running..." "${OUT}" "${screen_name}" "0x2ECC71"
   fi
 }
 
@@ -147,7 +147,7 @@ stop() {
       kill ${pid}
     done
   fi
-  send_discord "$proc_screen Server Stop" "${OUT}" "${LOCAL_IP}" "0xE91E63"
+  send_discord "$proc_screen Server Stop" "${OUT}" "${screen_name}" "0xE91E63"
 
 }
 
@@ -274,7 +274,8 @@ mc_backup_world() {
     MC_SERVER_NAME=$(eval "${SERVER_NAME_GET_CMD}")
     MC_BACKUP_WORLD_BASE=$(date '+%Y-%m-%d')
     # MC_BACKUP_FILE="$(date '+h%H')-${MC_VER}"
-    MC_BACKUP_FILE="$(date '+h%H')"
+    # MC_BACKUP_FILE="$(date '+h%H')"
+    MC_BACKUP_FILE="${MC_SERVER_NAME}-$(date '+%H:%M')"
     BASE_DIR="${MC_BACKUP_DIR_BASE%/}"
 
     if [ $PROC_COUNT != 0 ]; then
@@ -284,7 +285,7 @@ mc_backup_world() {
     fi
 
     for world in ${TARGET_WORLDS[@]}; do
-      BACKUP_TO="${BASE_DIR}/${MC_SERVER_NAME}/${MC_BACKUP_WORLD_BASE}-${MC_BACKUP_FILE}"
+      BACKUP_TO="${BASE_DIR}/${MC_SERVER_NAME}/${MC_BACKUP_WORLD_BASE}/${MC_BACKUP_FILE}"
       mkdir -p $BACKUP_TO
       ZIP_FILE_NAME="${MC_SERVER_NAME}_${world}"
       ARC_FILE="${BACKUP_TO}/${ZIP_FILE_NAME}"
