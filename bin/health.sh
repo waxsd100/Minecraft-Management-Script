@@ -121,10 +121,10 @@ EOF
     as_user "/bin/sh $target_dir/run.sh" || exitCode=$?
     if [ "$exitCode" = 0 ]; then
       echo "[${YMD}] [$proc_screen] Up"
-      send_discord "[$proc_screen] Server Start" "${OUT}" "${screen_name}" "0x2ECC71"
+      send_discord "Server Start" "${OUT}" "${screen_name}" "0x2ECC71"
     else
       echo "[${YMD}] [$proc_screen] Up Oops"
-      send_discord "[$proc_screen] Server Start Oops..." "${OUT}" "${screen_name}" "0x2ECC71"
+      send_discord "Server Start Oops..." "${OUT}" "${screen_name}" "0x2ECC71"
     fi
   else
     echo "[${YMD}] [$proc_screen] is up and running"
@@ -147,7 +147,7 @@ stop() {
       kill ${pid}
     done
   fi
-  send_discord "$proc_screen Server Stop" "${OUT}" "${screen_name}" "0xE91E63"
+  send_discord "Server Stop" "${OUT}" "${screen_name}" "0xE91E63"
 
 }
 
