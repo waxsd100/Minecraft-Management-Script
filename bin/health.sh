@@ -331,8 +331,10 @@ jobsCron() {
   UPDATE_CRON="0 0 * * * ${UPDATE_SHELL} >> ${OUTPUT_LOG}"
   LOG_ROTATE="@daily find ${LOG_DIR} -name '*.log' -mtime +${LOG_LEAVE_DAYS} -delete"
 
-  SED_CMD="sed -i -e '/${ME_FILE}/d' ${CRON_PATH}"
-  eval "${SED_CMD}"
+  SED_DELETE_CRON_CMD="sed -i -e '/${ME_FILE}/d' ${CRON_PATH}"
+  eval "${SED_DELETE_CRON_CMD}"
+  SED_DELETE_CRON_CMD2="sed -i -e '/Minecraft-Management-Script/d' ${CRON_PATH}"
+  eval "${SED_DELETE_CRON_CMD2}"
 
   if "${isInstall}"; then
     echo "${CRON_TAG}" >>${CRON_PATH}
