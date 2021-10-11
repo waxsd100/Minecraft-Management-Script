@@ -327,6 +327,7 @@ jobsCron() {
   CRON_TAG="### Minecraft HealthCheck Version: $VERSION Cron ${ME_FILE} ###"
   BACKUP_CRON="0 * * * * ${EXEC_SHELL} backup >> ${OUTPUT_LOG}"
   CHECK_CRON="* * * * * ${EXEC_SHELL} check >> ${OUTPUT_LOG}"
+  UPDATE_CRON="0 0 * * * ${EXEC_SHELL} check >> ${OUTPUT_LOG}"
   LOG_ROTATE="@daily find ${LOG_DIR}/ -name '*.log' -mtime +${LOG_LEAVE_DAYS} -delete"
 
   SED_CMD="sed -i -e '/${ME_FILE}/d' ${CRON_PATH}"
@@ -336,6 +337,8 @@ jobsCron() {
     echo "${CRON_TAG}" >>${CRON_PATH}
     echo "${BACKUP_CRON}" >>${CRON_PATH}
     echo "${CHECK_CRON}" >>${CRON_PATH}
+    echo "${UPDATE_CRON}" >>${CRON_PATH}
+    echo "${LOG_ROTATE}" >>${CRON_PATH}
     echo "[${YMD}] cron jobs append"
   else
     echo "[${YMD}] cron jobs delete"
