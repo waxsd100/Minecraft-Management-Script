@@ -322,13 +322,14 @@ jobsCron() {
   LOG_FILE_NAME="\`date +\%Y-\%m-\%d\`_healthcheck.log"
 
   EXEC_SHELL="/bin/sh ${SCRIPT_DIR}/${ME_FILE}"
+  UPDATE_SHELL="/bin/sh ${SCRIPT_DIR}/update.sh"
   OUTPUT_LOG="${LOG_DIR}${LOG_FILE_NAME} 2>&1"
 
   CRON_TAG="### Minecraft HealthCheck Version: $VERSION Cron ${ME_FILE} ###"
   BACKUP_CRON="0 * * * * ${EXEC_SHELL} backup >> ${OUTPUT_LOG}"
   CHECK_CRON="* * * * * ${EXEC_SHELL} check >> ${OUTPUT_LOG}"
-  UPDATE_CRON="0 0 * * * ${EXEC_SHELL} check >> ${OUTPUT_LOG}"
-  LOG_ROTATE="@daily find ${LOG_DIR}/ -name '*.log' -mtime +${LOG_LEAVE_DAYS} -delete"
+  UPDATE_CRON="0 0 * * * ${UPDATE_SHELL} >> ${OUTPUT_LOG}"
+  LOG_ROTATE="@daily find ${LOG_DIR} -name '*.log' -mtime +${LOG_LEAVE_DAYS} -delete"
 
   SED_CMD="sed -i -e '/${ME_FILE}/d' ${CRON_PATH}"
   eval "${SED_CMD}"
