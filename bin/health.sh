@@ -56,16 +56,22 @@ send_discord() {
   # Discord Webhook Sender
   title="$1"
   description="$2"
-  footer="$3"
-  color="$4"
+  color="$3"
+  footer="@wakokara"
 
   if "${DISCORD_NOTICE}"; then
     curl -LsS https://raw.githubusercontent.com/ChaoticWeg/discord.sh/master/discord.sh | bash -s -- \
       --title "${title}" \
-      --description "${description}" \
+      --description "${description} \n Here are your system stats(WIP)" \
+      --field "(WIP)Hostname;--;false" \
+      --field "(WIP)CPU;--%" \
+      --field "(WIP)Disk Usage;--/--" \
       --footer "${footer}" \
       --color "${color}" \
       --webhook-url "${DISCORD_WEB_HOOK_URL}" \
+      --author "Minecraft-Management-Script - ${VERSION}" \
+      --author-url "https://github.com/waxsd100/Minecraft-Management-Script" \
+      --author-icon "https://raw.githubusercontent.com/waxsd100/Minecraft-Management-Script/master/assets/img/twitter_profile_image.png" \
       --timestamp
   fi
 }
@@ -113,23 +119,23 @@ EOF
     echo "${screen_exec}" >>"$target_dir/run.sh"
     echo "#Version: ${VERSION}" >>"$target_dir/run.sh"
     echo [$YMD] $(chown "${RUN_USER}":"${RUN_USER}" "$target_dir"/run.sh -v)
-
   fi
   exitCode=0
   PROC_COUNT=$(ps -ef | grep $screen_name | grep -v grep | wc -l)
   if [ $PROC_COUNT = 0 ]; then
     as_user "/bin/sh $target_dir/run.sh" || exitCode=$?
     if [ "$exitCode" = 0 ]; then
-      echo "[${YMD}] [$proc_screen] Up"
-      send_discord "Server Start" "${OUT}" "${screen_name}" "0x2ECC71"
+      OUT=$(echo "[${YMD}] [$proc_screen] Up success")
+      send_discord "Server Start" "${OUT}" "0x2ECC71"
     else
-      echo "[${YMD}] [$proc_screen] Up Oops"
-      send_discord "Server Start Oops..." "${OUT}" "${screen_name}" "0x2ECC71"
+      OUT=$(echo "[${YMD}] [$proc_screen] Up failed")
+      send_discord "Server Start" "${OUT}" "0x2ECC71"
     fi
   else
-    echo "[${YMD}] [$proc_screen] is up and running"
-    send_discord "[$proc_screen] is up and running..." "${OUT}" "${screen_name}" "0x2ECC71"
+    OUT=$(echo "[${YMD}] [$proc_screen] is up and running...")
+    send_discord "Server Start" "${OUT}" "0x2ECC71"
   fi
+  echo ${OUT}
 }
 
 stop() {
@@ -138,17 +144,18 @@ stop() {
   proc_screen="$1"
   screen_sender $proc_screen $STOP_COMMAND
   if [ $? = 0 ]; then
-    OUT=$(echo "[${YMD}] [$proc_screen] Down")
+    OUT=$(echo "[${YMD}] [$proc_screen] Down success")
   else
-    OUT=$(echo "[${YMD}] [$proc_screen] Down Oops")
+    OUT=$(echo "[${YMD}] [$proc_screen] Down failed")
     pid_list=$(as_user "screen -list | grep $screen_name | cut -f1 -d'.' | sed 's/\W//g'")
     for pid in $pid_list; do
-      echo "${pid} killed"
       kill ${pid}
+      OUT=$(echo "[${YMD}] [$proc_screen]${pid} killed")
+      send_discord "Server Stop" "${OUT}" "0xE91E63"
     done
   fi
-  send_discord "Server Stop" "${OUT}" "${screen_name}" "0xE91E63"
-
+  send_discord "Server Stop" "${OUT}" "0xE91E63"
+  echo ${OUT}
 }
 
 count_wait() {
@@ -197,7 +204,7 @@ count_wait() {
 mc_check() {
   for proc_screen in ${!SERVER_PROPERTIES[@]}; do
     screen_name="${SCREEN_PREFIX}-${proc_screen}"
-    #監視するプロセスが何個起動しているかカウントする
+    # 監視するプロセスが何個起動しているかカウントする
     PROC_COUNT=$(ps -ef | grep $screen_name | grep -v grep | wc -l)
 
     # 監視するプロセスが0個場合に、処理を分岐する
