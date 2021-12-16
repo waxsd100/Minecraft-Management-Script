@@ -1,4 +1,6 @@
 #  minecraft Server Health Check and Management Script
+![logo](https://github.com/waxsd100/Minecraft-Management-Script/blob/master/assets/img/twitter_header_photo_2.png)
+
 
 日本語説明: https://github.com/waxsd100/Minecraft-Management-Script/blob/master/README-jp.md
 
