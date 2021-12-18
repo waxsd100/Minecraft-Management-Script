@@ -1,4 +1,5 @@
 #!/bin/bash
+LANG=C
 clear
 readonly BOLD=$'\e[1m'
 readonly RED=$'\e[1;31m'
