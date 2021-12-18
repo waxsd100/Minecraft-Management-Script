@@ -66,7 +66,8 @@ cat /tmp/cpustates
 echo ""
 
 # Check Disk Usages
-df -h | grep 'Filesystem\|/dev/vda*' >/tmp/diskusage
+devicename=$(df -h | awk '{print $1}' | grep '/dev/*')
+df -h | grep 'Filesystem\|$devicename' >/tmp/diskusage
 echo -e "$GREEN  Disk Usages :" $tecreset
 cat /tmp/diskusage
 

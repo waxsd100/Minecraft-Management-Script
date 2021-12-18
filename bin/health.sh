@@ -59,13 +59,22 @@ send_discord() {
   color="$3"
   footer="@wakokara"
 
+  devicename=$(df -h | awk '{print $1}' | grep '/dev/*')
+  devicsize=$(df -h | grep "^${devicename}" | awk '{print $2}')
+  devicuse=$(df -h | grep "^${devicename}" | awk '{print $3}')
+  if [ -z "$devicsize" ]; then
+    devicsize="--"
+  fi
+  if [ -z "$devicuse" ]; then
+    devicuse="--"
+  fi
   if "${DISCORD_NOTICE}"; then
     curl -LsS https://raw.githubusercontent.com/ChaoticWeg/discord.sh/master/discord.sh | bash -s -- \
       --title "${title}" \
-      --description "${description} \n Here are your system stats(WIP)" \
-      --field "(WIP)Hostname;--;false" \
-      --field "(WIP)CPU;--%" \
-      --field "(WIP)Disk Usage;--/--" \
+      --description "${description} \n Here are your system stats" \
+      --field "(WIP)CPU;--%;true" \
+      --field "(WIP)Mem;--%;true" \
+      --field "Disk Usage;${devicuse}/${devicsize};true" \
       --footer "${footer}" \
       --color "${color}" \
       --webhook-url "${DISCORD_WEB_HOOK_URL}" \
@@ -294,7 +303,7 @@ mc_backup_world() {
     for world in ${TARGET_WORLDS[@]}; do
       BACKUP_TO="${BASE_DIR}/${MC_SERVER_NAME}/${MC_BACKUP_WORLD_BASE}/${MC_BACKUP_FILE}"
       mkdir -p $BACKUP_TO
-#      ZIP_FILE_NAME="${MC_SERVER_NAME}_${world}"
+      #      ZIP_FILE_NAME="${MC_SERVER_NAME}_${world}"
       ZIP_FILE_NAME="${world}"
       ARC_FILE="${BACKUP_TO}/${ZIP_FILE_NAME}"
       TARGET="${TARGET_DIR}/${world}"
