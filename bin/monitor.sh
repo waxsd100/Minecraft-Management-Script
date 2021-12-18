@@ -72,7 +72,7 @@ echo -e "$GREEN  Disk Usages :" $tecreset
 cat /tmp/diskusage
 
 # Check Load Average
-loadaverage=$(top -n 1 -b | grep "load average:" | awk '{print $10 $11 $12}')
+loadaverage=$(top -n 1 -b | grep "load average:" | awk '{print $12 $13 $14}')
 echo -e "$GREEN  Load Average :" $tecreset $loadaverage
 
 # Check System Uptime
