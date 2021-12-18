@@ -68,7 +68,7 @@ echo ""
 
 # Check Disk Usages
 devicename=$(df -h | awk '{print $1}' | grep '/dev/*')
-df -h | grep 'Filesystem\|$devicename' >/tmp/diskusage
+df -h | grep "Filesystem\|${devicename}" >/tmp/diskusage
 echo -e "$GREEN  Disk Usages :" $tecreset
 cat /tmp/diskusage
 
