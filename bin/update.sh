@@ -15,6 +15,4 @@ git reset --hard origin/master
 \cp -f  "$temp_dir"/config.inc $dir/
 echo "Restore $temp_dir"
 
-/bin/sh bin/health.sh uninstall
-/bin/sh bin/health.sh install
 echo "Crontab reinstall"
