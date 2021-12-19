@@ -1,4 +1,4 @@
-#  Minecraft Server Management Shell Script
+#  Minecraft Server Management Shell Script(MineServer Manager Shell)
 ![logo](https://github.com/waxsd100/Minecraft-Management-Script/blob/master/assets/img/twitter_header_photo_2.png)
 
 
