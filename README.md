@@ -1,4 +1,4 @@
-#  minecraft Server Health Check and Management Script
+#  Minecraft Server Management Shell Script
 ![logo](https://github.com/waxsd100/Minecraft-Management-Script/blob/master/assets/img/twitter_header_photo_2.png)
 
 
